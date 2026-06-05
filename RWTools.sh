@@ -565,7 +565,7 @@ setup_subscription_page() {
         applications: $apps
     }')
 
-    # 5. Публикация в панель
+    # # 5. Публикация в панель
     echo "Отправка конфигурации в Remnawave API..."
     
     # 1. Запрашиваем список сабпейджей, чтобы узнать UUID твоей карточки "Default"
@@ -582,8 +582,8 @@ setup_subscription_page() {
     fi
 
     # Результат обработки
-    if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "204" ]; then
-        echo -e "\n\e[1;32m[Успех] Карточка Default на странице подписок успешно обновлена!\e[0m"
+    if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "204" ] || [ "$API_STATUS" == "201" ]; then
+        echo -e "\n\e[1;32m[Успех] Страница подписки идеально настроена! Изменения применились.\e[0m"
     else
         echo -e "\n\e[1;33mНе удалось обновить БД панели (Код: $API_STATUS). Применяем прямую запись в контейнер...\e[0m"
         mkdir -p /opt/remnawave/subscription
@@ -591,6 +591,7 @@ setup_subscription_page() {
         echo "Конфигурация записана локально в файл."
     fi
     read -p "Нажмите Enter для возврата в меню..."
+}
 
 
 
