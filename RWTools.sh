@@ -423,35 +423,36 @@ draw_multiselect_menu() {
 setup_subscription_page() {
     clear
     echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m      Настройка Subscription-Page через API        \e[0m"
+    echo -e "\e[1;32m       Настройка Subscription-Page панели           \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
-    
-    # 1. Авторизация
-    read -p "Введите URL вашей панели (например, https://panel.example.com): " PANEL_URL
-    PANEL_URL="${PANEL_URL%/}"
+    echo ""
 
-    echo -e "\nВыберите способ авторизации:"
-    echo "1) Использовать API Token (Рекомендуется)"
-    echo "2) Использовать Логин и Пароль"
-    read -p "Выбор (1-2): " AUTH_METHOD
-
-    if [ "$AUTH_METHOD" == "1" ]; then
-        read -p "Введите ваш API Token: " API_TOKEN
+    # Проверяем и запрашиваем URL панели
+    if [ -n "$PANEL_URL" ]; then
+        echo -e "Текущий URL панели: \e[1;32m$PANEL_URL\e[0m"
+        read -p "Нажмите Enter для сохранения старого или введите новый URL: " INPUT_URL
+        PANEL_URL=${INPUT_URL:-$PANEL_URL}
     else
-        read -p "Введите Username (Email): " ADMIN_EMAIL
-        read -s -p "Введите Пароль: " ADMIN_PASS
-        echo -e "\n\nПолучаем API Токен..."
-        AUTH_RESP=$(curl -s -X POST "$PANEL_URL/api/auth/login" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}")
-        
-        API_TOKEN=$(echo "$AUTH_RESP" | jq -r '.token // .accessToken // .data.token')
-        if [ "$API_TOKEN" == "null" ] || [ -z "$API_TOKEN" ]; then
-            echo -e "\e[1;31mОшибка авторизации! Проверьте логин и пароль.\e[0m"
-            read -p "Нажмите Enter..."
-            return
-        fi
+        read -p "Введите URL панели (например, https://panel.domain.com): " PANEL_URL
     fi
+    
+    # Авто-фикс формата URL (убираем слэш на конце, добавляем https при необходимости)
+    PANEL_URL="${PANEL_URL%/}"
+    if [[ ! "$PANEL_URL" =~ ^https?:// ]]; then
+        PANEL_URL="https://$PANEL_URL"
+    fi
+
+    # Проверяем и запрашиваем API токен
+    if [ -n "$API_TOKEN" ]; then
+        echo -e "API Токен: \e[1;32m[Уже сохранен в системе]\e[0m"
+        read -p "Нажмите Enter для сохранения старого или введите новый токен: " INPUT_TOKEN
+        API_TOKEN=${INPUT_TOKEN:-$API_TOKEN}
+    else
+        read -p "Введите ваш API Token панели: " API_TOKEN
+    fi
+
+    # Сразу сохраняем на диск, чтобы данные не потерялись
+    save_config
 
     # 2. Вызываем псевдографический чек-лист приложений
     declare -A APPS_SELECTION
@@ -566,11 +567,24 @@ setup_subscription_page() {
     }')
 
     # # 5. Публикация в панель
-    echo "Отправка конфигурации в Remnawave API..."
+    echo "Умное обновление конфигурации панели через API..."
     
-    # 1. Запрашиваем список сабпейджей, чтобы узнать UUID твоей карточки "Default"
+    # 1. Запрашиваем список сабпейджей
     local CONFIGS_LIST=$(curl -s -X GET "$PANEL_URL/api/system/subscription-page" -H "Authorization: Bearer $API_TOKEN")
-    local SUB_ID=$(echo "$CONFIGS_LIST" | jq -r '.[0].id // .data[0].id // null')
+    
+    # Всеядный парсинг ID: проверяет массив напрямую, внутри .data или ищет по названию "Default"
+    local SUB_ID=$(echo "$CONFIGS_LIST" | jq -r '
+        if type == "array" then .[0].id
+        elif type == "object" and .data then .data[0].id
+        elif type == "object" and .id then .id
+        else null end
+    ')
+
+    # Если нашли несколько, точечно берём именно карточку с именем Default
+    if echo "$CONFIGS_LIST" | jq -e '. | type == "array"' >/dev/null; then
+        local SEARCH_DEFAULT=$(echo "$CONFIGS_LIST" | jq -r '.[] | select(.name=="Default" or .title=="Default") | .id' 2>/dev/null)
+        [ -n "$SEARCH_DEFAULT" && "$SEARCH_DEFAULT" != "null" ] && SUB_ID="$SEARCH_DEFAULT"
+    fi
 
     local API_STATUS="404"
     if [ "$SUB_ID" != "null" ] && [ -n "$SUB_ID" ]; then
