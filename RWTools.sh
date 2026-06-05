@@ -6,6 +6,58 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# Путь к локальной базе настроек скрипта
+CONFIG_FILE="/opt/remnatools/config.conf"
+mkdir -p /opt/remnatools
+
+# Функция загрузки сохраненных параметров
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    fi
+    # Дефолтные значения, если настроек нет
+    PANEL_URL=${PANEL_URL:-""}
+    API_TOKEN=${API_TOKEN:-""}
+    TG_TOKEN=${TG_TOKEN:-""}
+    TG_CHAT_ID=${TG_CHAT_ID:-""}
+    TG_TOPIC_ID=${TG_TOPIC_ID:-""}
+    CRON_CHOICE=${CRON_CHOICE:-""}
+    USER_TIME=${USER_TIME:-""}
+    
+    # Загрузка выбранных приложений (1 - включено, 0 - выключено)
+    declare -g -A APPS_SELECTION
+    local apps_list=("Happ" "FlClashX" "v2raytun" "Karing" "Clash Mi" "INCY" "Rabbit Hole" "ShadowRocket" "Koala Clash" "Prizrak-Box" "Throne" "DeskBox")
+    for app in "${apps_list[@]}"; do
+        local clean_name=$(echo "$app" | tr -d ' ' | tr '-' '_')
+        local var_name="SEL_$clean_name"
+        if [ -n "${!var_name}" ]; then
+            APPS_SELECTION["$app"]=${!var_name}
+        else
+            APPS_SELECTION["$app"]=1 # По умолчанию все включены при первом запуске
+        fi
+    done
+}
+
+# Функция сохранения параметров
+save_config() {
+    cat <<EOF > "$CONFIG_FILE"
+PANEL_URL="$PANEL_URL"
+API_TOKEN="$API_TOKEN"
+TG_TOKEN="$TG_TOKEN"
+TG_CHAT_ID="$TG_CHAT_ID"
+TG_TOPIC_ID="$TG_TOPIC_ID"
+CRON_CHOICE="$CRON_CHOICE"
+USER_TIME="$USER_TIME"
+EOF
+    for app in "${!APPS_SELECTION[@]}"; do
+        local clean_name=$(echo "$app" | tr -d ' ' | tr '-' '_')
+        echo "SEL_$clean_name=\"${APPS_SELECTION[$app]}\"" >> "$CONFIG_FILE"
+    done
+}
+
+# Инициализируем конфиг при старте
+load_config
+
 # Проверка флага --about
 if [ "$1" == "--about" ]; then
     echo -e "\e[1;36m====================================================\e[0m"
@@ -294,10 +346,18 @@ draw_multiselect_menu() {
     # Массив всех доступных приложений
     local apps=("Happ" "FlClashX" "v2raytun" "Karing" "Clash Mi" "INCY" "Rabbit Hole" "ShadowRocket" "Koala Clash" "Prizrak-Box" "Throne" "DeskBox")
     local cursor=0
+    local choices=()
 
-    # Инициализируем массив выбранных приложений (все по умолчанию отмечены [*])
+    # Восстанавливаем сохраненный выбор пользователя из конфига. 
+    # Если запуск первый и переменной нет — по умолчанию ставим [*] (1)
     for i in "${!apps[@]}"; do
-        choices[$i]=1
+        local clean_name=$(echo "${apps[$i]}" | tr -d ' ' | tr '-' '_')
+        local var_name="SEL_$clean_name"
+        if [ -n "${!var_name}" ]; then
+            choices[$i]=${!var_name}
+        else
+            choices[$i]=1
+        fi
     done
 
     # Функция рендеринга списка
@@ -306,7 +366,7 @@ draw_multiselect_menu() {
         echo -e "\e[1;36m====================================================\e[0m"
         echo -e "\e[1;32m      Выбор приложений для Subscription-Page        \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;33m Управление:\e[0m ↑/↓ — перемещение, Пробел — вкл/выкл, Enter — готово"
+        echo -e "\e[1;33m Управление:\e[0m w (вверх), s (вниз), Пробел (вкл/выкл), Enter (готово)"
         echo -e "\e[1;36m----------------------------------------------------\e[0m"
         
         for i in "${!apps[@]}"; do
@@ -324,39 +384,38 @@ draw_multiselect_menu() {
         echo -e "\e[1;36m====================================================\e[0m"
     }
 
-    # Цикл обработки нажатий клавиш
+    # Цикл обработки нажатий клавиш (Исправленный фикс для Пробела)
     while true; do
         render_list
-        # Считываем коды клавиш (включая стрелки)
-        read -rsn1 key
-        if [[ "$key" == $'\x1b' ]]; then
-            read -rsn2 key
-            if [[ "$key" == "[A" ]]; then # Стрелка вверх
-                ((cursor--))
-                [ $cursor -lt 0 ] && cursor=$((${#apps[@]} - 1))
-            elif [[ "$key" == "[B" ]]; then # Стрелка вниз
-                ((cursor++))
-                [ $cursor -ge ${#apps[@]} ] && cursor=0
-            fi
-        elif [[ "$key" == "" ]]; then # Нажатие Enter
-            break
-        elif [[ "$key" == " " ]]; then # Нажатие Пробела
+        
+        # Читаем ровно один символ. IFS= сохраняет пробелы в первозданном виде
+        IFS= read -r -s -n1 key
+        
+        if [[ "$key" == "w" || "$key" == "W" ]]; then
+            ((cursor--))
+            [ $cursor -lt 0 ] && cursor=$((${#apps[@]} - 1))
+        elif [[ "$key" == "s" || "$key" == "S" ]]; then
+            ((cursor++))
+            [ $cursor -ge ${#apps[@]} ] && cursor=0
+        elif [[ "$key" == " " ]]; then # Нажатие на ПРОБЕЛ
             if [ "${choices[$cursor]}" == "1" ]; then
                 choices[$cursor]=0
             else
                 choices[$cursor]=1
             fi
+        elif [[ "$key" == "" ]]; then # Нажатие на ENTER
+            break
         fi
     done
 
-    # Записываем результат глобально в ассоциативный массив APPS_SELECTION
+    # Сохраняем измененные галочки обратно в ассоциативный массив для конфигурации на диске
     for i in "${!apps[@]}"; do
-        if [ "${choices[$i]}" == "1" ]; then
-            APPS_SELECTION["${apps[$i]}"]=true
-        else
-            APPS_SELECTION["${apps[$i]}"]=false
-        fi
+        local clean_name=$(echo "${apps[$i]}" | tr -d ' ' | tr '-' '_')
+        APPS_SELECTION["${apps[$i]}"]=${choices[$i]}
     done
+    
+    # Вызываем глобальное сохранение в файл /opt/remnatools/config.conf
+    save_config
 }
 
 
@@ -508,22 +567,30 @@ setup_subscription_page() {
 
     # 5. Публикация в панель
     echo "Отправка конфигурации в Remnawave API..."
-    API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$PANEL_URL/api/system/subscription-page" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$FINAL_PAYLOAD")
+    
+    # 1. Запрашиваем список сабпейджей, чтобы узнать UUID твоей карточки "Default"
+    local CONFIGS_LIST=$(curl -s -X GET "$PANEL_URL/api/system/subscription-page" -H "Authorization: Bearer $API_TOKEN")
+    local SUB_ID=$(echo "$CONFIGS_LIST" | jq -r '.[0].id // .data[0].id // null')
 
-    if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "201" ]; then
-        echo -e "\n\e[1;32m[Успех] Страница подписки идеально настроена! Изменения применились.\e[0m"
-    else
-        echo -e "\n\e[1;33mAPI вернул код $API_STATUS. Сохраняем локальный бэкап-файл...\e[0m"
-        mkdir -p /opt/remnawave/subscription
-        echo "$FINAL_PAYLOAD" | jq '.applications' > /opt/remnawave/subscription/app-config.json
-        echo "Файл записан в: /opt/remnawave/subscription/app-config.json"
+    local API_STATUS="404"
+    if [ "$SUB_ID" != "null" ] && [ -n "$SUB_ID" ]; then
+        # 2. Шлем точечный PUT именно в карточку Default по её ID
+        API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$PANEL_URL/api/system/subscription-page/$SUB_ID" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$FINAL_PAYLOAD")
     fi
 
-    read -p "Нажмите Enter для возврата в главное меню..."
-}
+    # Результат обработки
+    if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "204" ]; then
+        echo -e "\n\e[1;32m[Успех] Карточка Default на странице подписок успешно обновлена!\e[0m"
+    else
+        echo -e "\n\e[1;33mНе удалось обновить БД панели (Код: $API_STATUS). Применяем прямую запись в контейнер...\e[0m"
+        mkdir -p /opt/remnawave/subscription
+        echo "$FINAL_PAYLOAD" | jq '.applications' > /opt/remnawave/subscription/app-config.json
+        echo "Конфигурация записана локально в файл."
+    fi
+    read -p "Нажмите Enter для возврата в меню..."
 
 
 
