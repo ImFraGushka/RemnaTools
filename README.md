@@ -1,5 +1,7 @@
 # 🚀 RemnaTools v1.0.1
 
+choose your language: [Русский](https://github.com/ImFraGushka/RemnaTools/blob/main/README_RU.md)
+
 The ultimate CLI tool for managing the Remnawave ecosystem on Linux/Ubuntu servers.
 
 ## 📋 Features
