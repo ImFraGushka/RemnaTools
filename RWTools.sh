@@ -13,7 +13,13 @@ mkdir -p /opt/remnatools
 # Функция загрузки сохраненных параметров
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
-        source "$CONFIG_FILE"
+        # Читаем только валидные переменные (без дефисов в именах), чтобы избежать ошибок Bash
+        while IFS='=' read -r key value; do
+            if [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+                export "$key"="${value%\"}"
+                export "$key"="${value#\"}"
+            fi
+        done < "$CONFIG_FILE"
     fi
     # Дефолтные значения, если настроек нет
     PANEL_URL=${PANEL_URL:-""}
@@ -70,7 +76,8 @@ if [ "$1" == "--update" ]; then
     echo -e "\e[1;36m====================================================\e[0m"
     echo "Загрузка последней версии со GitHub..."
     
-    SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/RWTools.sh"
+    # Определяем путь к текущему исполняемому файлу
+    SCRIPT_PATH=$(realpath "${BASH_SOURCE[0]}")
     BACKUP_PATH="$SCRIPT_PATH.backup.$(date +%Y%m%d_%H%M%S)"
     
     # Создаем резервную копию
@@ -81,7 +88,7 @@ if [ "$1" == "--update" ]; then
     if curl -fsSL https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh -o "$SCRIPT_PATH"; then
         chmod +x "$SCRIPT_PATH"
         echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
-        echo "  Используйте 'rwtools' для запуска нового скрипта"
+        echo "  Перезапустите скрипт для применения изменений."
     else
         echo -e "\e[1;31m✗ Ошибка при загрузке: проверьте интернет-соединение\e[0m"
         cp "$BACKUP_PATH" "$SCRIPT_PATH"
