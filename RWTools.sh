@@ -890,295 +890,44 @@ setup_subscription_page() {
     fi
     read -p "Нажмите Enter для возврата..."
 }
-    
-    # Интерактивное меню выбора платформ
+
+# --- ГЛАВНОЕ МЕНЮ ИНСТРУМЕНТА ---
+main_menu() {
     while true; do
         clear
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m   Выбор платформ для конфигурации приложений       \e[0m"
-        echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;33m Управление:\e[0m w (вверх), s (вниз), Пробел (вкл/выкл), Enter (далее)"
-        echo -e "\e[1;36m----------------------------------------------------\e[0m"
-        
-        for i in "${!platforms[@]}"; do
-            local marker="[ ]"
-            local platform_name="${platforms[$i]}"
-            
-            if [ "${platform_choices[$i]}" == "1" ]; then
-                marker="[\e[1;32m*\e[0m]"
-            fi
-            
-            # Красиво выводим названия платформ
-            case "$platform_name" in
-                "android") platform_name="🤖 Андроид (Android)" ;;
-                "ios") platform_name="🍎 iOS / iPadOS" ;;
-                "windows") platform_name="🪟 Windows" ;;
-                "macos") platform_name="🍎 macOS" ;;
-                "linux") platform_name="🐧 Linux" ;;
-                "tv") platform_name="📺 TV (Android TV/Fire TV)" ;;
-            esac
-
-            if [ "$i" == "$cursor" ]; then
-                echo -e " \e[1;36m➔\e[0m $marker $platform_name \e[1;36m(текущий)\e[0m"
-            else
-                echo -e "   $marker $platform_name"
-            fi
-        done
+        echo -e "\e[1;32m          🚀 RemnaTools v1.0.1 (CLI)              \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         
-        IFS= read -r -s -n1 key
+        local -a menu_options=(\
+            "🔧 Автоустановка Панели (Caddy + DB + Docker)" \
+            "🖥️  Автоустановка Remna Node" \
+            "💾 Управление резервными копиями" \
+            "📱 Настроить Subscription-Page" \
+            "⬆️  Обновить скрипт" \
+            "ℹ️  О нас" \
+            "❌ Выход"
+        )
         
-        if [[ "$key" == "w" || "$key" == "W" ]]; then
-            ((cursor--))
-            [ $cursor -lt 0 ] && cursor=$((${#platforms[@]} - 1))
-        elif [[ "$key" == "s" || "$key" == "S" ]]; then
-            ((cursor++))
-            [ $cursor -ge ${#platforms[@]} ] && cursor=0
-        elif [[ "$key" == " " ]]; then
-            if [ "${platform_choices[$cursor]}" == "1" ]; then
-                platform_choices[$cursor]=0
-            else
-                platform_choices[$cursor]=1
-            fi
-        elif [[ "$key" == "" ]]; then
-            break
-        fi
+        interactive_menu menu_options "$(echo -e '\e[1;33mВыберите действие:\e[0m')"
+        local choice=$?
+        
+        case $choice in
+            0) install_panel ;;
+            1) install_node ;;
+            2) manage_backups ;;
+            3) setup_subscription_page ;;
+            4) exec "$0" --update ;;
+            5) exec "$0" --about ;;
+            6) 
+                clear
+                echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
+                exit 0
+                ;;
+            *) echo "Неверный выбор." && sleep 1 ;;
+        esac
     done
-    
-    # Выбираем приложения для каждой выбранной платформы
-    for i in "${!platforms[@]}"; do
-        if [ "${platform_choices[$i]}" == "1" ]; then
-            draw_platform_selection_menu "${platforms[$i]}"
-        fi
-    done
-    
-    # Сохраняем выборы
-    save_config
-
-    # --- КОНСТРУИРОВАНИЕ JSON-БЛОКОВ ДЛЯ КАЖДОГО ПРИЛОЖЕНИЯ ---
-    
-    # Словарь для хранения платформ каждого приложения
-    declare -A app_platforms
-    app_platforms["Happ"]="android ios windows macos linux tv"
-    app_platforms["FlClashX"]="android windows macos linux"
-    app_platforms["v2raytun"]="android ios macos tv"
-    app_platforms["Karing"]="android ios windows macos linux"
-    app_platforms["Clash_Mi"]="android windows macos linux"
-    app_platforms["INCY"]="android ios windows macos linux"
-    app_platforms["Rabbit_Hole"]="ios macos"
-    app_platforms["ShadowRocket"]="ios macos"
-    app_platforms["Koala_Clash"]="windows macos linux"
-    app_platforms["Prizrak-Box"]="windows macos linux"
-    app_platforms["Throne"]="windows macos linux"
-    app_platforms["DeskBox"]="windows macos linux"
-    
-    # Функция для построения JSON-структуры приложения
-    build_app_json() {
-        local name="$1"
-        local platforms_str="$2"
-        
-        # Преобразуем строку платформ в JSON-массив
-        local platforms_json="["
-        local first=1
-        for p in $platforms_str; do
-            if [ $first -eq 0 ]; then platforms_json+=","; fi
-            platforms_json+="\"$p\""
-            first=0
-        done
-        platforms_json+="]"
-        
-        # Специальные параметры для разных приложений
-        local buttons_json='[{"text":"Скачать/Установить","url":"#","primary":false}]'
-        local warning="Рекомендуется запускать приложение от имени Администратора (или с root-правами для Linux/Android)."
-        local manual="Скопируйте ссылку подписки (кнопка 'Получить ссылку' вверху экрана). В приложении перейдите в менеджер профилей, добавьте новый элемент и вставьте скопированный URL."
-        local connection="Активируйте добавленную подписку. Переключите режим работы в положение TUN Mode или Системный прокси для маршрутизации трафика."
-        local link_type="SING_BOX_LINK"
-        
-        # Специальные настройки для конкретных приложений
-        if [[ "$name" == "Happ" ]]; then
-            buttons_json='[{"text":"Google Play","url":"#","primary":false},{"text":"Скачать APK","url":"#","primary":false}]'
-            warning="Разрешите установку из неизвестных источников в настройках Android."
-            link_type="HAPP_CRYPT4_LINK"
-        elif [[ "$name" == "Prizrak-Box" ]]; then
-            buttons_json='[{"text":"Windows (Установщик)","url":"#","primary":false},{"text":"Windows на ARM","url":"#","primary":false}]'
-            warning="Запустите программу от имени администратора."
-            link_type="MIHOMO_LINK"
-        elif [[ "$name" == "ShadowRocket" ]]; then
-            buttons_json='[{"text":"App Store","url":"#","primary":false}]'
-            warning="Требуется покупка в App Store."
-            link_type="SS_LINK"
-        elif [[ "$name" == "Rabbit Hole" ]]; then
-            buttons_json='[{"text":"App Store","url":"#","primary":false}]'
-            link_type="CLASH_LINK"
-        fi
-        
-        jq -n \
-            --arg name "$name" \
-            --argjson platforms "$platforms_json" \
-            --argjson buttons "$buttons_json" \
-            --arg warn "$warning" \
-            --arg manual "$manual" \
-            --arg conn "$connection" \
-            --arg dl_type "$link_type" \
-            '{
-                name: $name,
-                platforms: $platforms,
-                display: true,
-                blocks: [
-                    {
-                        title: "Установка приложения",
-                        icon: "download",
-                        description: "Откройте страницу в Google Play или скачайте APK, установите приложение \($name).",
-                        buttons: $buttons
-                    },
-                    {
-                        title: "Предупреждение",
-                        icon: "alert",
-                        description: $warn
-                    },
-                    {
-                        title: "Добавление подписки",
-                        icon: "cloud-download",
-                        description: "Нажмите кнопку ниже, чтобы автоматически добавить подписку.",
-                        buttons: [
-                            { text: "Добавить подписку", type: $dl_type, primary: true }
-                        ]
-                    },
-                    {
-                        title: "Если подписка не добавилась",
-                        icon: "settings",
-                        description: $manual
-                    },
-                    {
-                        title: "Подключение и использование",
-                        icon: "check-circle",
-                        description: $conn
-                    }
-                ]
-            }'
-    }
-
-    # Собираем JSON-массив всех выбранных приложений
-    local JSON_APPS_ARRAY="[]"
-    local -a all_app_names=("Happ" "FlClashX" "v2raytun" "Karing" "Clash_Mi" "INCY" "Rabbit_Hole" "ShadowRocket" "Koala_Clash" "Prizrak-Box" "Throne" "DeskBox")
-    
-    for app_internal in "${all_app_names[@]}"; do
-        # Проверяем, выбрано ли это приложение хотя бы для одной платформы
-        local is_selected=0
-        local selected_platforms=""
-        
-        for platform in android ios windows macos linux tv; do
-            local key="${platform}_${app_internal}"
-            if [ "${APPS_SELECTION[$key]}" == "1" ]; then
-                is_selected=1
-                [ -z "$selected_platforms" ] && selected_platforms="$platform" || selected_platforms="$selected_platforms $platform"
-            fi
-        done
-        
-        if [ $is_selected -eq 1 ]; then
-            # Преобразуем имя для красивого вывода
-            local app_display="${app_internal//_/ }"
-            local app_json=$(build_app_json "$app_display" "$selected_platforms")
-            JSON_APPS_ARRAY=$(echo "$JSON_APPS_ARRAY" | jq ". + [$app_json]")
-        fi
-    done
-
-    # Формируем финальный payload
-    local FINAL_PAYLOAD=$(jq -n --argjson apps "$JSON_APPS_ARRAY" '{
-        metaTitle: "RemnaTools Subscription Page",
-        metaDescription: "Быстрая настройка вашего защищенного соединения.",
-        displayRawKeys: false,
-        languages: ["ru", "en"],
-        applications: $apps
-    }')
-
-    # Публикуем конфигурацию на панель
-    echo "Умное обновление конфигурации панели через API..."
-    
-    # 1. Запрашиваем список конфигураций subscription-page
-    local CONFIGS_LIST=$(curl -s -X GET "$PANEL_URL/api/system/subscription-page" -H "Authorization: Bearer $API_TOKEN")
-    
-    # 2. Извлекаем ID конфигурации
-    local SUB_ID=$(echo "$CONFIGS_LIST" | jq -r '
-        if type == "array" then .[0].id
-        elif type == "object" and .data then .data[0].id
-        elif type == "object" and .id then .id
-        else null end
-    ')
-
-    if echo "$CONFIGS_LIST" | jq -e '. | type == "array"' >/dev/null 2>&1; then
-        local SEARCH_DEFAULT=$(echo "$CONFIGS_LIST" | jq -r '.[] | select(.name=="Default" or .title=="Default") | .id' 2>/dev/null)
-        [ -n "$SEARCH_DEFAULT" ] && [ "$SEARCH_DEFAULT" != "null" ] && SUB_ID="$SEARCH_DEFAULT"
-    fi
-
-    # 3. Отправляем конфигурацию
-    local API_STATUS="404"
-    if [ "$SUB_ID" != "null" ] && [ -n "$SUB_ID" ]; then
-        API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$PANEL_URL/api/system/subscription-page/$SUB_ID" \
-            -H "Authorization: Bearer $API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$FINAL_PAYLOAD")
-    fi
-
-    # 4. Результат обработки
-    if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "204" ] || [ "$API_STATUS" == "201" ]; then
-        echo -e "\n\e[1;32m[Успех] Страница подписки идеально настроена! Изменения применились.\e[0m"
-        echo -e "\e[1;32mДобавлено приложений по платформам:\e[0m"
-        
-        # Выводим статистику по платформам
-        for platform in android ios windows macos linux tv; do
-            local count=0
-            for app in ${PLATFORM_APPS[$platform]}; do
-                [ "${APPS_SELECTION[${platform}_${app}]}" == "1" ] && ((count++))
-            done
-            if [ $count -gt 0 ]; then
-                printf "  %-12s: %d приложение(й)\n" "$platform" "$count"
-            fi
-        done
-    else
-        echo -e "\n\e[1;33mНе удалось обновить БД панели (Код: $API_STATUS). Применяем прямую запись в контейнер...\e[0m"
-        mkdir -p /opt/remnawave/subscription
-        echo "$FINAL_PAYLOAD" | jq '.applications' > /opt/remnawave/subscription/app-config.json
-        echo "Конфигурация записана локально в файл."
-    fi
-    read -p "Нажмите Enter для возврата в меню..."
 }
 
-
-
-
-# --- ГЛАВНОЕ МЕНЮ ИНСТРУМЕНТА ---
-while true; do
-    clear
-    echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m          🚀 RemnaTools v1.0.1 (CLI)              \e[0m"
-    echo -e "\e[1;36m====================================================\e[0m"
-    
-    local -a main_menu=(\
-        "🔧 Автоустановка Панели (Caddy + DB + Docker)" \
-        "🖥️  Автоустановка Remna Node" \
-        "💾 Управление резервными копиями" \
-        "📱 Настроить Subscription-Page" \
-        "⬆️  Обновить скрипт" \
-        "ℹ️  О нас" \
-        "❌ Выход"
-    )
-    
-    interactive_menu main_menu "$(echo -e '\e[1;33mВыберите действие:\e[0m')"
-    local choice=$?
-    
-    case $choice in
-        0) install_panel ;;
-        1) install_node ;;
-        2) manage_backups ;;
-        3) setup_subscription_page ;;
-        4) exec "$0" --update ;;
-        5) exec "$0" --about ;;
-        6) 
-            clear
-            echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
-            exit 0
-            ;;
-        *) echo "Неверный выбор." && sleep 1 ;;
-    esac
-done
+# Запуск главного меню
+main_menu
