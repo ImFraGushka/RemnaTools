@@ -31,7 +31,7 @@ Happ, FlClashX, v2raytun, Karing, Clash Mi, INCY, Rabbit Hole, ShadowRocket, Koa
 
 ```bash
 git clone https://github.com/ImFraGushka/RemnaTools.git
-cd remnatools
+cd RemnaTools
 sudo bash install.sh
 ```
 
