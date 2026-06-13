@@ -549,13 +549,19 @@ interactive_menu() {
         echo -e "Управление: ↑↓ (стрелки) или w/s, Enter (выбрать)"
         echo ""
         
-        read -rsn3 key
+        read -rsn1 key
+        
+        # Обработка escape-последовательностей для стрелок
+        if [[ "$key" == $'\x1b' ]]; then
+            read -rsn2 -t 0.1 key
+        fi
+
         case "$key" in
-            $'\x1b[A'|w|W) # Стрелка вверх или W
+            '[A'|w|W) # Стрелка вверх или W
                 ((cursor--))
                 [ $cursor -lt 0 ] && cursor=$((${#options[@]} - 1))
                 ;;
-            $'\x1b[B'|s|S) # Стрелка вниз или S
+            '[B'|s|S) # Стрелка вниз или S
                 ((cursor++))
                 [ $cursor -ge ${#options[@]} ] && cursor=0
                 ;;
@@ -917,8 +923,11 @@ main_menu() {
             1) install_node ;;
             2) manage_backups ;;
             3) setup_subscription_page ;;
-            4) exec "$0" --update ;;
-            5) exec "$0" --about ;;
+            4) 
+                "$0" --update
+                # После обновления, скрипт будет перезапущен
+                ;;
+            5) "$0" --about ;;
             6) 
                 clear
                 echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
