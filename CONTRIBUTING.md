@@ -141,8 +141,8 @@ echo -e "\033[36mℹ Info\033[0m"              # Cyan
 1. **Test Environment Setup:**
    ```bash
    # Clone the repository
-   git clone https://github.com/remnawave/remnatools.git
-   cd remnatools
+   git clone https://github.com/ImFraGushka/RemnaTools.git
+   cd RemnaTools
    
    # Create a feature branch
    git checkout -b feature/your-feature-name
