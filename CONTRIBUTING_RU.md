@@ -129,8 +129,8 @@ echo -e "\033[36mℹ Информация\033[0m"      # Голубой
 1. **Подготовка окружения:**
 ```bash
 # Клонирование
-git clone https://github.com/remnawave/remnatools.git
-cd remnatools
+git clone https://github.com/ImFraGushka/RemnaTools.git
+cd RemnaTools
 
 # Создание ветки
 git checkout -b feature/название-функции
