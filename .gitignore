@@ -1,0 +1,84 @@
+# RemnaTools Git Ignore
+
+# Configuration files (contain sensitive data)
+/opt/remnatools/
+/config.conf
+*.conf.bak
+.config
+
+# Backup files
+/tmp/remna_backups/
+*.tar.gz
+*.tar
+*.zip
+backup_*.sh
+
+# Logs
+*.log
+/logs/
+
+# Backup scripts created by cron
+backup_worker.sh
+restore_worker.sh
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Shell script temp files
+*.tmp
+.shell_history
+
+# Docker files (may contain sensitive data)
+docker-compose.override.yml
+.env.local
+.env.production.local
+
+# OS specific
+.AppleDouble
+.AppleDB
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# Security
+.ssh/
+*.pem
+*.key
+*.pub
+
+# Node modules (if using Node in future)
+node_modules/
+package-lock.json
+
+# Python cache (if using Python tools)
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Test artifacts
+test-results.xml
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+*.bak
+
+# Keep these important files tracked
+!README.md
+!README_RU.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!INSTALL.md
+!LICENSE
+!RWTools.sh
+!install.sh
+!
