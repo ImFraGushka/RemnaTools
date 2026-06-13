@@ -30,7 +30,7 @@ Happ, FlClashX, v2raytun, Karing, Clash Mi, INCY, Rabbit Hole, ShadowRocket, Koa
 ### Quick Install (recommended)
 
 ```bash
-git clone https://github.com/remnawave/remnatools.git
+git clone https://github.com/ImFraGushka/RemnaTools.git
 cd remnatools
 sudo bash install.sh
 ```
