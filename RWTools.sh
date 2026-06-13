@@ -24,17 +24,28 @@ load_config() {
     CRON_CHOICE=${CRON_CHOICE:-""}
     USER_TIME=${USER_TIME:-""}
     
-    # Загрузка выбранных приложений (1 - включено, 0 - выключено)
+    # Загрузка выбранных приложений по платформам (1 - включено, 0 - выключено)
     declare -g -A APPS_SELECTION
-    local apps_list=("Happ" "FlClashX" "v2raytun" "Karing" "Clash Mi" "INCY" "Rabbit Hole" "ShadowRocket" "Koala Clash" "Prizrak-Box" "Throne" "DeskBox")
-    for app in "${apps_list[@]}"; do
-        local clean_name=$(echo "$app" | tr -d ' ' | tr '-' '_')
-        local var_name="SEL_$clean_name"
-        if [ -n "${!var_name}" ]; then
-            APPS_SELECTION["$app"]=${!var_name}
-        else
-            APPS_SELECTION["$app"]=1 # По умолчанию все включены при первом запуске
-        fi
+    
+    # Инициализируем все платформы
+    declare -g -A PLATFORM_APPS
+    PLATFORM_APPS["android"]="Happ FlClashX v2raytun Karing Clash_Mi INCY"
+    PLATFORM_APPS["ios"]="Happ Rabbit_Hole Karing v2raytun ShadowRocket INCY"
+    PLATFORM_APPS["windows"]="Happ FlClashX Koala_Clash Karing Prizrak-Box Throne Clash_Mi INCY DeskBox"
+    PLATFORM_APPS["macos"]="Happ FlClashX Rabbit_Hole Koala_Clash Karing Prizrak-Box Throne v2raytun ShadowRocket Clash_Mi INCY DeskBox"
+    PLATFORM_APPS["linux"]="Happ FlClashX Koala_Clash Karing Prizrak-Box Throne Clash_Mi INCY DeskBox"
+    PLATFORM_APPS["tv"]="v2raytun Happ"
+    
+    # Загружаем сохраненные выборы
+    for platform in android ios windows macos linux tv; do
+        for app in ${PLATFORM_APPS[$platform]}; do
+            local var_name="SEL_${platform}_${app}"
+            if [ -n "${!var_name}" ]; then
+                APPS_SELECTION["${platform}_${app}"]=${!var_name}
+            else
+                APPS_SELECTION["${platform}_${app}"]=1
+            fi
+        done
     done
 }
 
@@ -49,9 +60,10 @@ TG_TOPIC_ID="$TG_TOPIC_ID"
 CRON_CHOICE="$CRON_CHOICE"
 USER_TIME="$USER_TIME"
 EOF
-    for app in "${!APPS_SELECTION[@]}"; do
-        local clean_name=$(echo "$app" | tr -d ' ' | tr '-' '_')
-        echo "SEL_$clean_name=\"${APPS_SELECTION[$app]}\"" >> "$CONFIG_FILE"
+    
+    # Сохраняем выборы по платформам
+    for key in "${!APPS_SELECTION[@]}"; do
+        echo "SEL_$key=\"${APPS_SELECTION[$key]}\"" >> "$CONFIG_FILE"
     done
 }
 
@@ -341,81 +353,100 @@ restore_backup() {
 
 #Блок автонастройки Subscription-Page
 
-# --- ФУНКЦИЯ ДЛЯ ОТРИСОВКИ МЕНЮ С ГАЛОЧКАМИ ---
-draw_multiselect_menu() {
-    # Массив всех доступных приложений
-    local apps=("Happ" "FlClashX" "v2raytun" "Karing" "Clash Mi" "INCY" "Rabbit Hole" "ShadowRocket" "Koala Clash" "Prizrak-Box" "Throne" "DeskBox")
-    local cursor=0
-    local choices=()
+# --- ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ УЖЕ ДОБАВЛЕННЫХ ПРИЛОЖЕНИЙ ИЗ ПАНЕЛИ ---
+get_existing_apps() {
+    local panel_url="$1"
+    local api_token="$2"
+    
+    # Получаем конфигурацию subscription-page из панели
+    local response=$(curl -s -X GET "$panel_url/api/system/subscription-page" \
+        -H "Authorization: Bearer $api_token")
+    
+    # Проверяем тип ответа и извлекаем приложения
+    if echo "$response" | jq -e . >/dev/null 2>&1; then
+        # Пытаемся найти массив приложений
+        echo "$response" | jq -r '.applications[]?.name? // empty' 2>/dev/null | sort -u
+    fi
+}
 
-    # Восстанавливаем сохраненный выбор пользователя из конфига. 
-    # Если запуск первый и переменной нет — по умолчанию ставим [*] (1)
-    for i in "${!apps[@]}"; do
-        local clean_name=$(echo "${apps[$i]}" | tr -d ' ' | tr '-' '_')
-        local var_name="SEL_$clean_name"
-        if [ -n "${!var_name}" ]; then
-            choices[$i]=${!var_name}
+# --- ФУНКЦИЯ ДЛЯ ОТРИСОВКИ МЕНЮ ВЫБОРА ПО ПЛАТФОРМАМ ---
+draw_platform_selection_menu() {
+    local platform="$1"
+    local cursor=0
+    local -a apps_list=()
+    local -a choices=()
+    local -a existing_apps=()
+    
+    # Получаем список приложений для текущей платформы
+    local app_string="${PLATFORM_APPS[$platform]}"
+    IFS=' ' read -ra apps_list <<< "$app_string"
+    
+    # Инициализируем choices из сохраненных значений
+    for i in "${!apps_list[@]}"; do
+        local app_key="${platform}_${apps_list[$i]}"
+        if [ -n "${APPS_SELECTION[$app_key]}" ]; then
+            choices[$i]=${APPS_SELECTION[$app_key]}
         else
             choices[$i]=1
         fi
     done
-
+    
     # Функция рендеринга списка
     render_list() {
         clear
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m      Выбор приложений для Subscription-Page        \e[0m"
+        echo -e "\e[1;32m  Выбор приложений для платформы: \e[1;33m$platform\e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;33m Управление:\e[0m w (вверх), s (вниз), Пробел (вкл/выкл), Enter (готово)"
+        echo -e "\e[1;33m Управление:\e[0m w (вверх), s (вниз), Пробел (вкл/выкл), Enter (далее)"
         echo -e "\e[1;36m----------------------------------------------------\e[0m"
         
-        for i in "${!apps[@]}"; do
+        for i in "${!apps_list[@]}"; do
+            # Преобразуем обратно из очищенного имени в нормальное
+            local display_name="${apps_list[$i]//_/ }"
+            display_name="${display_name//-/ }"
+            
             local marker="[ ]"
             if [ "${choices[$i]}" == "1" ]; then
                 marker="[\e[1;32m*\e[0m]"
             fi
 
             if [ "$i" == "$cursor" ]; then
-                echo -e " \e[1;36m➔\e[0m $marker ${apps[$i]} \e[1;36m(текущий)\e[0m"
+                echo -e " \e[1;36m➔\e[0m $marker $display_name \e[1;36m(текущий)\e[0m"
             else
-                echo -e "   $marker ${apps[$i]}"
+                echo -e "   $marker $display_name"
             fi
         done
         echo -e "\e[1;36m====================================================\e[0m"
     }
 
-    # Цикл обработки нажатий клавиш (Исправленный фикс для Пробела)
+    # Цикл обработки нажатий клавиш
     while true; do
         render_list
         
-        # Читаем ровно один символ. IFS= сохраняет пробелы в первозданном виде
         IFS= read -r -s -n1 key
         
         if [[ "$key" == "w" || "$key" == "W" ]]; then
             ((cursor--))
-            [ $cursor -lt 0 ] && cursor=$((${#apps[@]} - 1))
+            [ $cursor -lt 0 ] && cursor=$((${#apps_list[@]} - 1))
         elif [[ "$key" == "s" || "$key" == "S" ]]; then
             ((cursor++))
-            [ $cursor -ge ${#apps[@]} ] && cursor=0
-        elif [[ "$key" == " " ]]; then # Нажатие на ПРОБЕЛ
+            [ $cursor -ge ${#apps_list[@]} ] && cursor=0
+        elif [[ "$key" == " " ]]; then
             if [ "${choices[$cursor]}" == "1" ]; then
                 choices[$cursor]=0
             else
                 choices[$cursor]=1
             fi
-        elif [[ "$key" == "" ]]; then # Нажатие на ENTER
+        elif [[ "$key" == "" ]]; then
             break
         fi
     done
 
-    # Сохраняем измененные галочки обратно в ассоциативный массив для конфигурации на диске
-    for i in "${!apps[@]}"; do
-        local clean_name=$(echo "${apps[$i]}" | tr -d ' ' | tr '-' '_')
-        APPS_SELECTION["${apps[$i]}"]=${choices[$i]}
+    # Сохраняем измененные галочки
+    for i in "${!apps_list[@]}"; do
+        local app_key="${platform}_${apps_list[$i]}"
+        APPS_SELECTION["$app_key"]=${choices[$i]}
     done
-    
-    # Вызываем глобальное сохранение в файл /opt/remnatools/config.conf
-    save_config
 }
 
 
@@ -436,7 +467,7 @@ setup_subscription_page() {
         read -p "Введите URL панели (например, https://panel.domain.com): " PANEL_URL
     fi
     
-    # Авто-фикс формата URL (убираем слэш на конце, добавляем https при необходимости)
+    # Авто-фикс формата URL
     PANEL_URL="${PANEL_URL%/}"
     if [[ ! "$PANEL_URL" =~ ^https?:// ]]; then
         PANEL_URL="https://$PANEL_URL"
@@ -451,34 +482,153 @@ setup_subscription_page() {
         read -p "Введите ваш API Token панели: " API_TOKEN
     fi
 
-    # Сразу сохраняем на диск, чтобы данные не потерялись
+    # Сохраняем параметры на диск
     save_config
 
-    # 2. Вызываем псевдографический чек-лист приложений
-    declare -A APPS_SELECTION
-    declare -a choices
-    draw_multiselect_menu
+    echo "Получаю информацию о текущих приложениях на панели..."
+    local existing_apps=($(get_existing_apps "$PANEL_URL" "$API_TOKEN"))
+    
+    if [ ${#existing_apps[@]} -gt 0 ]; then
+        echo -e "\e[1;32mУже добавленные приложения:\e[0m"
+        printf '%s\n' "${existing_apps[@]}" | sed 's/^/  ✓ /'
+        echo ""
+    fi
 
-    # 3. Конструктор JSON-блоков под дизайн с твоего скриншота image_98f7a0.png
-    JSON_APPS_ARRAY="[]"
+    # Меню выбора платформ для настройки
+    declare -a selected_platforms=()
+    local cursor=0
+    local -a platforms=("android" "ios" "windows" "macos" "linux" "tv")
+    local -a platform_choices=(1 1 1 1 1 1)
+    
+    # Интерактивное меню выбора платформ
+    while true; do
+        clear
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;32m   Выбор платформ для конфигурации приложений       \e[0m"
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;33m Управление:\e[0m w (вверх), s (вниз), Пробел (вкл/выкл), Enter (далее)"
+        echo -e "\e[1;36m----------------------------------------------------\e[0m"
+        
+        for i in "${!platforms[@]}"; do
+            local marker="[ ]"
+            local platform_name="${platforms[$i]}"
+            
+            if [ "${platform_choices[$i]}" == "1" ]; then
+                marker="[\e[1;32m*\e[0m]"
+            fi
+            
+            # Красиво выводим названия платформ
+            case "$platform_name" in
+                "android") platform_name="🤖 Андроид (Android)" ;;
+                "ios") platform_name="🍎 iOS / iPadOS" ;;
+                "windows") platform_name="🪟 Windows" ;;
+                "macos") platform_name="🍎 macOS" ;;
+                "linux") platform_name="🐧 Linux" ;;
+                "tv") platform_name="📺 TV (Android TV/Fire TV)" ;;
+            esac
 
+            if [ "$i" == "$cursor" ]; then
+                echo -e " \e[1;36m➔\e[0m $marker $platform_name \e[1;36m(текущий)\e[0m"
+            else
+                echo -e "   $marker $platform_name"
+            fi
+        done
+        echo -e "\e[1;36m====================================================\e[0m"
+        
+        IFS= read -r -s -n1 key
+        
+        if [[ "$key" == "w" || "$key" == "W" ]]; then
+            ((cursor--))
+            [ $cursor -lt 0 ] && cursor=$((${#platforms[@]} - 1))
+        elif [[ "$key" == "s" || "$key" == "S" ]]; then
+            ((cursor++))
+            [ $cursor -ge ${#platforms[@]} ] && cursor=0
+        elif [[ "$key" == " " ]]; then
+            if [ "${platform_choices[$cursor]}" == "1" ]; then
+                platform_choices[$cursor]=0
+            else
+                platform_choices[$cursor]=1
+            fi
+        elif [[ "$key" == "" ]]; then
+            break
+        fi
+    done
+    
+    # Выбираем приложения для каждой выбранной платформы
+    for i in "${!platforms[@]}"; do
+        if [ "${platform_choices[$i]}" == "1" ]; then
+            draw_platform_selection_menu "${platforms[$i]}"
+        fi
+    done
+    
+    # Сохраняем выборы
+    save_config
+
+    # --- КОНСТРУИРОВАНИЕ JSON-БЛОКОВ ДЛЯ КАЖДОГО ПРИЛОЖЕНИЯ ---
+    
+    # Словарь для хранения платформ каждого приложения
+    declare -A app_platforms
+    app_platforms["Happ"]="android ios windows macos linux tv"
+    app_platforms["FlClashX"]="android windows macos linux"
+    app_platforms["v2raytun"]="android ios macos tv"
+    app_platforms["Karing"]="android ios windows macos linux"
+    app_platforms["Clash_Mi"]="android windows macos linux"
+    app_platforms["INCY"]="android ios windows macos linux"
+    app_platforms["Rabbit_Hole"]="ios macos"
+    app_platforms["ShadowRocket"]="ios macos"
+    app_platforms["Koala_Clash"]="windows macos linux"
+    app_platforms["Prizrak-Box"]="windows macos linux"
+    app_platforms["Throne"]="windows macos linux"
+    app_platforms["DeskBox"]="windows macos linux"
+    
+    # Функция для построения JSON-структуры приложения
     build_app_json() {
         local name="$1"
-        local os_list="$2"
-        local install_btn_json="$3"
-        local warn_text="$4"
-        local manual_text="$5"
-        local conn_text="$6"
-        local deep_link_type="$7"
-
+        local platforms_str="$2"
+        
+        # Преобразуем строку платформ в JSON-массив
+        local platforms_json="["
+        local first=1
+        for p in $platforms_str; do
+            if [ $first -eq 0 ]; then platforms_json+=","; fi
+            platforms_json+="\"$p\""
+            first=0
+        done
+        platforms_json+="]"
+        
+        # Специальные параметры для разных приложений
+        local buttons_json='[{"text":"Скачать/Установить","url":"#","primary":false}]'
+        local warning="Рекомендуется запускать приложение от имени Администратора (или с root-правами для Linux/Android)."
+        local manual="Скопируйте ссылку подписки (кнопка 'Получить ссылку' вверху экрана). В приложении перейдите в менеджер профилей, добавьте новый элемент и вставьте скопированный URL."
+        local connection="Активируйте добавленную подписку. Переключите режим работы в положение TUN Mode или Системный прокси для маршрутизации трафика."
+        local link_type="SING_BOX_LINK"
+        
+        # Специальные настройки для конкретных приложений
+        if [[ "$name" == "Happ" ]]; then
+            buttons_json='[{"text":"Google Play","url":"#","primary":false},{"text":"Скачать APK","url":"#","primary":false}]'
+            warning="Разрешите установку из неизвестных источников в настройках Android."
+            link_type="HAPP_CRYPT4_LINK"
+        elif [[ "$name" == "Prizrak-Box" ]]; then
+            buttons_json='[{"text":"Windows (Установщик)","url":"#","primary":false},{"text":"Windows на ARM","url":"#","primary":false}]'
+            warning="Запустите программу от имени администратора."
+            link_type="MIHOMO_LINK"
+        elif [[ "$name" == "ShadowRocket" ]]; then
+            buttons_json='[{"text":"App Store","url":"#","primary":false}]'
+            warning="Требуется покупка в App Store."
+            link_type="SS_LINK"
+        elif [[ "$name" == "Rabbit Hole" ]]; then
+            buttons_json='[{"text":"App Store","url":"#","primary":false}]'
+            link_type="CLASH_LINK"
+        fi
+        
         jq -n \
             --arg name "$name" \
-            --argjson platforms "$os_list" \
-            --argjson buttons "$install_btn_json" \
-            --arg warn "$warn_text" \
-            --arg manual "$manual_text" \
-            --arg conn "$conn_text" \
-            --arg dl_type "$deep_link_type" \
+            --argjson platforms "$platforms_json" \
+            --argjson buttons "$buttons_json" \
+            --arg warn "$warning" \
+            --arg manual "$manual" \
+            --arg conn "$connection" \
+            --arg dl_type "$link_type" \
             '{
                 name: $name,
                 platforms: $platforms,
@@ -487,7 +637,7 @@ setup_subscription_page() {
                     {
                         title: "Установка приложения",
                         icon: "download",
-                        description: "Выберите архитектуру (предпочтительно установщик) и установите или распакуйте \($name).",
+                        description: "Откройте страницу в Google Play или скачайте APK, установите приложение \($name).",
                         buttons: $buttons
                     },
                     {
@@ -517,48 +667,33 @@ setup_subscription_page() {
             }'
     }
 
-    echo "Генерируем конфигурацию..."
-
-    # Блок Prizrak-Box (Строго по скрину image_98f7a0.png)
-    if [ "${APPS_SELECTION["Prizrak-Box"]}" == "true" ]; then
-        PZ_BTNS='[{"text":"Windows (Установщик)","url":"#","primary":false},{"text":"Windows на ARM (Установщик)","url":"#","primary":false}]'
-        PZ_MANUAL="Если после нажатия на кнопку ничего не произошло, добавьте подписку вручную. Нажмите на этой страницу кнопку Получить ссылку в правом верхнем углу, скопируйте ссылку. В Prizrak-Box перейдите в раздел Профили, нажмите кнопку +, вставьте вашу скопированную ссылку и нажмите Подтвердить."
-        PZ_CONN="Выберите добавленную подписку в разделе Профили. Выбрать страну сервера можно в разделе Прокси (🚀). Установите переключатель TUN в положение ВКЛ."
+    # Собираем JSON-массив всех выбранных приложений
+    local JSON_APPS_ARRAY="[]"
+    local -a all_app_names=("Happ" "FlClashX" "v2raytun" "Karing" "Clash_Mi" "INCY" "Rabbit_Hole" "ShadowRocket" "Koala_Clash" "Prizrak-Box" "Throne" "DeskBox")
+    
+    for app_internal in "${all_app_names[@]}"; do
+        # Проверяем, выбрано ли это приложение хотя бы для одной платформы
+        local is_selected=0
+        local selected_platforms=""
         
-        PZ_JSON=$(build_app_json "Prizrak-Box" '["windows", "macos", "linux"]' "$PZ_BTNS" "Запустите программу от имени администратора." "$PZ_MANUAL" "$PZ_CONN" "MIHOMO_LINK")
-        JSON_APPS_ARRAY=$(echo "$JSON_APPS_ARRAY" | jq ". + [$PZ_JSON]")
-    fi
-
-    # Блок Happ
-    if [ "${APPS_SELECTION["Happ"]}" == "true" ]; then
-        H_BTNS='[{"text":"Скачать APK (Universal)","url":"#","primary":false},{"text":"Google Play","url":"#","primary":false}]'
-        H_MANUAL="Нажмите кнопку «Получить ссылку» вверху страницы, скопируйте ее. Откройте Happ, перейдите в Профили -> Нажмите «+» -> Вставьте ссылку."
-        H_CONN="Выберите импортированный профиль. Во вкладке Прокси выберите локацию. Включите главный тумблер TUN."
+        for platform in android ios windows macos linux tv; do
+            local key="${platform}_${app_internal}"
+            if [ "${APPS_SELECTION[$key]}" == "1" ]; then
+                is_selected=1
+                [ -z "$selected_platforms" ] && selected_platforms="$platform" || selected_platforms="$selected_platforms $platform"
+            fi
+        done
         
-        H_JSON=$(build_app_json "Happ" '["android", "ios", "windows", "macos", "linux", "tv"]' "$H_BTNS" "Разрешите установку из неизвестных источников в настройках Android." "$H_MANUAL" "$H_CONN" "HAPP_CRYPT4_LINK")
-        JSON_APPS_ARRAY=$(echo "$JSON_APPS_ARRAY" | jq ". + [$H_JSON]")
-    fi
-
-    # Шаблонное заполнение для всех остальных выбранных приложений
-    ALL_APPS=("Happ" "FlClashX" "v2raytun" "Karing" "Clash Mi" "INCY" "Rabbit Hole" "ShadowRocket" "Koala Clash" "Prizrak-Box" "Throne" "DeskBox")
-    for app in "${ALL_APPS[@]}"; do
-        if [ "$app" != "Prizrak-Box" ] && [ "$app" != "Happ" ] && [ "${APPS_SELECTION["$app"]}" == "true" ]; then
-            PLATFORMS='["windows", "macos", "linux", "android", "ios"]'
-            [ "$app" == "Rabbit Hole" ] && PLATFORMS='["ios", "macos"]'
-            [ "$app" == "ShadowRocket" ] && PLATFORMS='["ios", "macos"]'
-            
-            GEN_BTNS="[{\"text\":\"Скачать клиент\",\"url\":\"#\",\"primary\":false}]"
-            GEN_WARN="Рекомендуется запускать приложение от имени Администратора (или с root-правами для Linux/Android)."
-            GEN_MANUAL="Скопируйте ссылку подписки (кнопка 'Получить ссылку' вверху экрана). В приложении перейдите в менеджер профилей, добавьте новый элемент и вставьте скопированный URL."
-            GEN_CONN="Активируйте добавленную подписку. Переключите режим работы в положение TUN Mode или Системный прокси для маршрутизации трафика."
-            
-            GEN_JSON=$(build_app_json "$app" "$PLATFORMS" "$GEN_BTNS" "$GEN_WARN" "$GEN_MANUAL" "$GEN_CONN" "SING_BOX_LINK")
-            JSON_APPS_ARRAY=$(echo "$JSON_APPS_ARRAY" | jq ". + [$GEN_JSON]")
+        if [ $is_selected -eq 1 ]; then
+            # Преобразуем имя для красивого вывода
+            local app_display="${app_internal//_/ }"
+            local app_json=$(build_app_json "$app_display" "$selected_platforms")
+            JSON_APPS_ARRAY=$(echo "$JSON_APPS_ARRAY" | jq ". + [$app_json]")
         fi
     done
 
-    # 4. Формируем тело запроса
-    FINAL_PAYLOAD=$(jq -n --argjson apps "$JSON_APPS_ARRAY" '{
+    # Формируем финальный payload
+    local FINAL_PAYLOAD=$(jq -n --argjson apps "$JSON_APPS_ARRAY" '{
         metaTitle: "RemnaTools Subscription Page",
         metaDescription: "Быстрая настройка вашего защищенного соединения.",
         displayRawKeys: false,
@@ -566,13 +701,13 @@ setup_subscription_page() {
         applications: $apps
     }')
 
-    # # 5. Публикация в панель
+    # Публикуем конфигурацию на панель
     echo "Умное обновление конфигурации панели через API..."
     
-    # 1. Запрашиваем список сабпейджей
+    # 1. Запрашиваем список конфигураций subscription-page
     local CONFIGS_LIST=$(curl -s -X GET "$PANEL_URL/api/system/subscription-page" -H "Authorization: Bearer $API_TOKEN")
     
-    # Всеядный парсинг ID: проверяет массив напрямую, внутри .data или ищет по названию "Default"
+    # 2. Извлекаем ID конфигурации
     local SUB_ID=$(echo "$CONFIGS_LIST" | jq -r '
         if type == "array" then .[0].id
         elif type == "object" and .data then .data[0].id
@@ -580,24 +715,35 @@ setup_subscription_page() {
         else null end
     ')
 
-    # Если нашли несколько, точечно берём именно карточку с именем Default
-    if echo "$CONFIGS_LIST" | jq -e '. | type == "array"' >/dev/null; then
+    if echo "$CONFIGS_LIST" | jq -e '. | type == "array"' >/dev/null 2>&1; then
         local SEARCH_DEFAULT=$(echo "$CONFIGS_LIST" | jq -r '.[] | select(.name=="Default" or .title=="Default") | .id' 2>/dev/null)
-        [ -n "$SEARCH_DEFAULT" && "$SEARCH_DEFAULT" != "null" ] && SUB_ID="$SEARCH_DEFAULT"
+        [ -n "$SEARCH_DEFAULT" ] && [ "$SEARCH_DEFAULT" != "null" ] && SUB_ID="$SEARCH_DEFAULT"
     fi
 
+    # 3. Отправляем конфигурацию
     local API_STATUS="404"
     if [ "$SUB_ID" != "null" ] && [ -n "$SUB_ID" ]; then
-        # 2. Шлем точечный PUT именно в карточку Default по её ID
         API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$PANEL_URL/api/system/subscription-page/$SUB_ID" \
             -H "Authorization: Bearer $API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$FINAL_PAYLOAD")
     fi
 
-    # Результат обработки
+    # 4. Результат обработки
     if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "204" ] || [ "$API_STATUS" == "201" ]; then
         echo -e "\n\e[1;32m[Успех] Страница подписки идеально настроена! Изменения применились.\e[0m"
+        echo -e "\e[1;32mДобавлено приложений по платформам:\e[0m"
+        
+        # Выводим статистику по платформам
+        for platform in android ios windows macos linux tv; do
+            local count=0
+            for app in ${PLATFORM_APPS[$platform]}; do
+                [ "${APPS_SELECTION[${platform}_${app}]}" == "1" ] && ((count++))
+            done
+            if [ $count -gt 0 ]; then
+                printf "  %-12s: %d приложение(й)\n" "$platform" "$count"
+            fi
+        done
     else
         echo -e "\n\e[1;33mНе удалось обновить БД панели (Код: $API_STATUS). Применяем прямую запись в контейнер...\e[0m"
         mkdir -p /opt/remnawave/subscription
