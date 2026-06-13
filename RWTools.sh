@@ -868,13 +868,22 @@ setup_subscription_page() {
     
     local SUB_ID=$(echo "$body" | jq -r '.id? // .[0].id? // empty' 2>/dev/null)
 
-    local API_STATUS="404"
-    if [ -n "$SUB_ID" ] && [ "$SUB_ID" != "null" ]; then
-        API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$PANEL_URL/api/system/subscription-page/$SUB_ID" \
-            -H "Authorization: Bearer $API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$FINAL_PAYLOAD")
+    local API_METHOD="PUT"
+    local API_URL="$PANEL_URL/api/system/subscription-page/$SUB_ID"
+
+    if [ -z "$SUB_ID" ] || [ "$SUB_ID" == "null" ]; then
+        API_METHOD="POST"
+        API_URL="$PANEL_URL/api/system/subscription-page"
+        echo "Страница подписки не найдена, будет создана новая."
+    else
+        echo "Найдена существующая страница подписки с ID: $SUB_ID. Будет обновлена."
     fi
+
+    # 3. Отправляем конфигурацию
+    local API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X "$API_METHOD" "$API_URL" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "$FINAL_PAYLOAD")
 
     # Результат обработки
     if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "204" ] || [ "$API_STATUS" == "201" ]; then
