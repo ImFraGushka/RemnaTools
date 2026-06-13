@@ -113,7 +113,7 @@ if [ "$1" == "--update" ]; then
     echo "✓ Резервная копия создана: $BACKUP_PATH"
     
     # Загружаем новую версию
-    if curl -fsSL https://raw.githubusercontent.com/remnawave/remnatools/main/RWTools.sh -o "$SCRIPT_PATH"; then
+    if curl -fsSL https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh -o "$SCRIPT_PATH"; then
         chmod +x "$SCRIPT_PATH"
         echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
         echo "  Используйте 'rwtools' для запуска нового скрипта"
