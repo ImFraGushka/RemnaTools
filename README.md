@@ -9,21 +9,12 @@ The ultimate CLI tool for managing the Remnawave ecosystem on Linux/Ubuntu serve
 ✓ **Auto Panel Installation** - Caddy + PostgreSQL + Docker in one click  
 ✓ **Auto Node Installation** - With BBR3, IPv6-off, SelfSteal support  
 ✓ **Backup Management** - Create, restore, and auto-upload to Telegram  
-✓ **Subscription-Page Configuration** - Choose apps for each platform separately  
 ✓ **Auto Script Update** - Built-in update with backup  
 
-## 📱 Supported Platforms
+## 📱 Supported Systems
 
-- 🤖 **Android** (6 applications)
-- 🍎 **iOS** (6 applications)
-- 🪟 **Windows** (9 applications)
-- **macOS** (12 applications)
-- 🐧 **Linux** (9 applications)
-- 📺 **TV** (2 applications)
-
-## 📦 Supported Applications
-
-Happ, FlClashX, v2raytun, Karing, Clash Mi, INCY, Rabbit Hole, ShadowRocket, Koala Clash, Prizrak-Box, Throne, DeskBox
+- Ubuntu 18.04+
+- Debian 10+
 
 ## 🔧 Installation
 
@@ -70,10 +61,9 @@ sudo rwtools --install    # Install to system
    ├─ Create Backup Now
    ├─ Restore from Backup
    └─ Configure Auto Upload
-4. Configure Subscription-Page
-5. Update Script
-6. About
-7. Exit
+4. Update Script
+5. About
+6. Exit
 ```
 
 ## 🔐 Requirements
