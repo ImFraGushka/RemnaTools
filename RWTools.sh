@@ -635,7 +635,7 @@ run_benchmarks() {
                 bash <(curl -Ls IP.Check.Place | sed '/^\s*show_ad\s*$/d') -l en
                 echo -e "\n"
                 ;;
-                echo -e "\\\\n"
+                echo -e "\\\\\\n"
                 ;;
             "Проверить геолокацию IP (IP Region)")
                 echo -e "\n${YELLOW}>> Проверка гео-теста (стриминговые платформы)...${NC}"
