@@ -774,9 +774,9 @@ main_menu() {
             1) install_node ;;
             2) manage_backups ;;
             3) run_benchmarks ;;
-            4) "$0" --update ;;
+            4) "$0" --update; read -p "Нажмите Enter для возврата..." ;;
             5) uninstall_script ;;
-            6) "$0" --about ;;
+            6) "$0" --about; read -p "Нажмите Enter для возврата..." ;;
             7) 
                 clear
                 echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
