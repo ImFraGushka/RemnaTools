@@ -441,14 +441,36 @@ EOF
 
 create_backup_now() {
     clear
+    local title="Создание резервной копии..."
+    local err_no_tg="✗ Ошибка: Telegram не настроен!"
+    local msg_goto_conf="  Перейдите в Управление бэкапами → Настройка автоотправки"
+    local back="Нажмите Enter для возврата..."
+    local msg_archiving="Архивирование данных..."
+    local msg_size="Размер: "
+    local msg_sending="Отправка в Telegram..."
+    local msg_ok="✓ Бэкап успешно создан и отправлен!"
+    local msg_err_arch="✗ Ошибка при создании архива!"
+    
+    if [ "$RLANG" == "EN" ]; then
+        title="Creating Backup..."
+        err_no_tg="✗ Error: Telegram not configured!"
+        msg_goto_conf="  Go to Backup Management → Configure Auto-send"
+        back="Press Enter to return..."
+        msg_archiving="Archiving data..."
+        msg_size="Size: "
+        msg_sending="Sending to Telegram..."
+        msg_ok="✓ Backup created and sent successfully!"
+        msg_err_arch="✗ Error creating archive!"
+    fi
+
     echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m            Создание резервной копии...            \e[0m"
+    echo -e "\e[1;32m            $title            \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
     
     if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then
-        echo -e "\e[1;31m✗ Ошибка: Telegram не настроен!\e[0m"
-        echo "  Перейдите в Управление бэкапами → Настройка автоотправки"
-        read -p "Нажмите Enter для возврата..."
+        echo -e "\e[1;31m$err_no_tg\e[0m"
+        echo "$msg_goto_conf"
+        read -p "$back"
         return 1
     fi
     
@@ -456,12 +478,12 @@ create_backup_now() {
     BACKUP_DIR="/tmp/remna_backups"
     
     mkdir -p $BACKUP_DIR
-    echo "Архивирование данных..."
+    echo "$msg_archiving"
     tar -czf $BACKUP_DIR/$BACKUP_NAME -C / opt/remnawave opt/remnanode 2>/dev/null
     
     if [ -f "$BACKUP_DIR/$BACKUP_NAME" ]; then
-        echo "Размер: $(du -h $BACKUP_DIR/$BACKUP_NAME | cut -f1)"
-        echo "Отправка в Telegram..."
+        echo "$msg_size$(du -h $BACKUP_DIR/$BACKUP_NAME | cut -f1)"
+        echo "$msg_sending"
         
         if [ -z "$TG_TOPIC_ID" ]; then
             curl -s -F chat_id="$TG_CHAT_ID" -F document=@"$BACKUP_DIR/$BACKUP_NAME" \
@@ -473,52 +495,66 @@ create_backup_now() {
         fi
         
         rm -rf $BACKUP_DIR
-        echo -e "\e[1;32m✓ Бэкап успешно создан и отправлен!\e[0m"
+        echo -e "\e[1;32m$msg_ok\e[0m"
     else
-        echo -e "\e[1;31m✗ Ошибка при создании архива!\e[0m"
+        echo -e "\e[1;31m$msg_err_arch\e[0m"
     fi
     
-    read -p "Нажмите Enter для возврата..."
+    read -p "$back"
 }
 
 configure_backup_auto() {
     clear
+    local title="Настройка автоматической отправки бэкапов"
+    local ask_token="Введите Telegram Bot Token: "
+    local ask_chat="Введите Telegram Chat ID: "
+    local ask_topic="Введите Topic ID (оставьте пустым если нет): "
+    local ask_cron_title="Выберите периодичность бэкапов:"
+    local cron_opt1="Раз в час (0 * * * *)"
+    local cron_opt2="Раз в день в полночь (0 0 * * *)"
+    local cron_opt3="Точечное время (введу вручную)"
+    local ask_schedule="Выберите расписание:"
+    local ask_time="Введите время в формате ЧЧ:ММ (например, 03:00): "
+    local msg_ok="✓ Расписание бэкапов успешно добавлено!"
+    local back="Нажмите Enter для возврата..."
+    
+    if [ "$RLANG" == "EN" ]; then
+        title="Configuring Auto-send Backups"
+        ask_token="Enter Telegram Bot Token: "
+        ask_chat="Enter Telegram Chat ID: "
+        ask_topic="Enter Topic ID (leave empty if none): "
+        ask_cron_title="Select backup frequency:"
+        cron_opt1="Every hour (0 * * * *)"
+        cron_opt2="Every day at midnight (0 0 * * *)"
+        cron_opt3="Custom time (enter manually)"
+        ask_schedule="Select schedule:"
+        ask_time="Enter time in HH:MM format (e.g., 03:00): "
+        msg_ok="✓ Backup schedule added successfully!"
+        back="Press Enter to return..."
+    fi
+
     echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m     Настройка автоматической отправки бэкапов      \e[0m"
+    echo -e "\e[1;32m     $title      \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
     echo ""
     
-    read -p "Введите Telegram Bot Token: " TG_TOKEN
-    read -p "Введите Telegram Chat ID: " TG_CHAT_ID
-    read -p "Введите Topic ID (оставьте пустым если нет): " TG_TOPIC_ID
+    read -p "$ask_token" TG_TOKEN
+    read -p "$ask_chat" TG_CHAT_ID
+    read -p "$ask_topic" TG_TOPIC_ID
     
     # Создаем скрипт выполнения бэкапа
     mkdir -p /opt/remnatools
     cat <<'EOF' > /opt/remnatools/backup_worker.sh
 #!/bin/bash
-TOKEN="$TG_TOKEN"
-CHAT_ID="$TG_CHAT_ID"
-TOPIC_ID="$TG_TOPIC_ID"
-BACKUP_NAME="remna_backup_$(date +%Y%m%d_%H%M%S).tar.gz"
-BACKUP_DIR="/tmp/remna_backups"
-
-mkdir -p $BACKUP_DIR
-tar -czf $BACKUP_DIR/$BACKUP_NAME -C / opt/remnawave opt/remnanode 2>/dev/null
-
-if [ -z "$TOPIC_ID" ]; then
-    curl -s -F chat_id="$CHAT_ID" -F document=@"$BACKUP_DIR/$BACKUP_NAME" https://api.telegram.org/bot$TOKEN/sendDocument >/dev/null 2>&1
-else
-    curl -s -F chat_id="$CHAT_ID" -F message_thread_id="$TOPIC_ID" -F document=@"$BACKUP_DIR/$BACKUP_NAME" https://api.telegram.org/bot$TOKEN/sendDocument >/dev/null 2>&1
-fi
-
+// ...existing code...
 rm -rf $BACKUP_DIR
 EOF
 
     chmod +x /opt/remnatools/backup_worker.sh
     
-    echo "Выберите периодичность бэкапов:"
-    local -a cron_options=("Раз в час (0 * * * *)" "Раз в день в полночь (0 0 * * *)" "Точечное время (введу вручную)")
-    interactive_menu cron_options "Выберите расписание:" 
+    echo "$ask_cron_title"
+    local -a cron_options=("$cron_opt1" "$cron_opt2" "$cron_opt3")
+    interactive_menu cron_options "$ask_schedule" 
     local choice=$?
     
     # Удаляем старые записи cron
@@ -528,7 +564,7 @@ EOF
         0) (crontab -l 2>/dev/null; echo "0 * * * * /opt/remnatools/backup_worker.sh") | crontab - ;;
         1) (crontab -l 2>/dev/null; echo "0 0 * * * /opt/remnatools/backup_worker.sh") | crontab - ;;
         2) 
-            read -p "Введите время в формате ЧЧ:ММ (например, 03:00): " B_TIME
+            read -p "$ask_time" B_TIME
             H=$(echo $B_TIME | cut -d: -f1)
             M=$(echo $B_TIME | cut -d: -f2)
             (crontab -l 2>/dev/null; echo "$M $H * * * /opt/remnatools/backup_worker.sh") | crontab -
@@ -536,49 +572,87 @@ EOF
     esac
     
     save_config
-    echo -e "\e[1;32m✓ Расписание бэкапов успешно добавлено!\e[0m"
-    read -p "Нажмите Enter для возврата..."
+    echo -e "\e[1;32m$msg_ok\e[0m"
+    read -p "$back"
 }
 
 restore_backup() {
     clear
+    local title="Восстановление системы из бэкапа"
+    local msg_info="📌 Поместите файл бэкапа (.tar.gz) в /root/ перед этим"
+    local ask_file="Введите имя файла (например, remna_backup_2026.tar.gz): "
+    local msg_stopping="Останавливаем контейнеры..."
+    local msg_unpacking="Распаковка резервной копии..."
+    local msg_starting="Запуск восстановленных контейнеров..."
+    local msg_ok="✓ Восстановление завершено!"
+    local msg_err="✗ Файл не найден: /root/"
+    local back="Нажмите Enter для возврата..."
+    
+    if [ "$RLANG" == "EN" ]; then
+        title="Restoring System from Backup"
+        msg_info="📌 Place the backup file (.tar.gz) in /root/ beforehand"
+        ask_file="Enter filename (e.g., remna_backup_2026.tar.gz): "
+        msg_stopping="Stopping containers..."
+        msg_unpacking="Unpacking backup..."
+        msg_starting="Starting restored containers..."
+        msg_ok="✓ Restoration completed!"
+        msg_err="✗ File not found: /root/"
+        back="Press Enter to return..."
+    fi
+
     echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m       Восстановление системы из бэкапа           \e[0m"
+    echo -e "\e[1;32m       $title           \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
     echo ""
-    echo "📌 Поместите файл бэкапа (.tar.gz) в /root/ перед этим"
+    echo "$msg_info"
     echo ""
-    read -p "Введите имя файла (например, remna_backup_2026.tar.gz): " B_FILE
+    read -p "$ask_file" B_FILE
     
     if [ -f "/root/$B_FILE" ]; then
-        echo "Останавливаем контейнеры..."
+        echo "$msg_stopping"
         cd /opt/remnawave 2>/dev/null && docker compose down 2>/dev/null
         cd /opt/remnanode 2>/dev/null && docker compose down 2>/dev/null
         
-        echo "Распаковка резервной копии..."
+        echo "$msg_unpacking"
         tar -xzf /root/$B_FILE -C / 2>/dev/null
         
-        echo "Запуск восстановленных контейнеров..."
+        echo "$msg_starting"
         cd /opt/remnawave 2>/dev/null && docker compose up -d 2>/dev/null
         cd /opt/remnanode 2>/dev/null && docker compose up -d 2>/dev/null
         
-        echo -e "\e[1;32m✓ Восстановление завершено!\e[0m"
+        echo -e "\e[1;32m$msg_ok\e[0m"
     else
-        echo -e "\e[1;31m✗ Файл не найден: /root/$B_FILE\e[0m"
+        echo -e "\e[1;31m$msg_err$B_FILE\e[0m"
     fi
     
-    read -p "Нажмите Enter для возврата..."
+    read -p "$back"
 }
 
 manage_backups() {
     while true; do
         clear
+        local title="Управление резервными копиями"
+        local prompt="Выберите действие:"
+        local opt1="1. Создать бэкап прямо сейчас"
+        local opt2="2. Восстановиться из бэкапа"
+        local opt3="3. Настройка автоотправки"
+        local opt4="4. Назад в главное меню"
+        
+        if [ "$RLANG" == "EN" ]; then
+            title="Backup Management"
+            prompt="Select an action:"
+            opt1="1. Create backup now"
+            opt2="2. Restore from backup"
+            opt3="3. Configure auto-send"
+            opt4="4. Back to main menu"
+        fi
+
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m           Управление резервными копиями          \e[0m"
+        echo -e "\e[1;32m           $title          \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         
-        local -a menu_items=("1. Создать бэкап прямо сейчас" "2. Восстановиться из бэкапа" "3. Настройка автоотправки" "4. Назад в главное меню")
-        interactive_menu menu_items "$(echo -e '\e[1;33mВыберите действие:\e[0m')"
+        local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4")
+        interactive_menu menu_items "$(echo -e "\e[1;33m$prompt\e[0m")"
         local choice=$?
         
         case $choice in
@@ -600,67 +674,117 @@ run_benchmarks() {
     local RED='\033[0;31m'
     local NC='\033[0m' # Без цвета
 
+    local title="Сборник тестов и бенчмарков для Linux-серверов"
+    local opt_bbr="Включить оптимизацию сети (BBR)"
+    local opt_ip_check="Проверить чистоту IP (IP.Check.Place)"
+    local opt_ip_geo="Проверить геолокацию IP (IP Region)"
+    local opt_yabs="Запустить YABS (CPU, Disk, IPv4 Network)"
+    local opt_bench="Запустить Bench.sh (System info & Global Speed)"
+    local opt_ru_speed="Тест скорости до провайдеров в РФ"
+    local opt_speedtest="Установить и запустить Ookla Speedtest CLI"
+    local opt_exit="Выход"
+    local prompt="Выберите нужное действие (введите номер): "
+    local msg_bbr="Включение BBR..."
+    local msg_bbr_err="Ошибка: Для изменения параметров sysctl нужны права root (sudo)."
+    local msg_bbr_ok="Готово! BBR активирован."
+    local msg_ip_check="Проверка блокировок IP..."
+    local msg_ip_geo="Проверка гео-теста (стриминговые платформы)..."
+    local msg_yabs="Запуск YABS (только IPv4)..."
+    local msg_bench="Запуск Bench.sh..."
+    local msg_ru_speed="Проверка скорости до РФ..."
+    local msg_speedtest="Скачивание и запуск официального Speedtest CLI..."
+    local msg_speedtest_arch="Предупреждение: Скрипт качает версию для x86_64. Ваша архитектура: "
+    local msg_speedtest_err="Не удалось скачать Speedtest CLI."
+    local msg_exit="Возврат в главное меню..."
+    local msg_invalid="Неверный выбор. Попробуйте еще раз."
+
+    if [ "$RLANG" == "EN" ]; then
+        title="Linux Server Tests & Benchmarks Collection"
+        opt_bbr="Enable network optimization (BBR)"
+        opt_ip_check="Check IP purity (IP.Check.Place)"
+        opt_ip_geo="Check IP geolocation (IP Region)"
+        opt_yabs="Run YABS (CPU, Disk, IPv4 Network)"
+        opt_bench="Run Bench.sh (System info & Global Speed)"
+        opt_ru_speed="Speed test to RU providers"
+        opt_speedtest="Install & Run Ookla Speedtest CLI"
+        opt_exit="Exit"
+        prompt="Select an action (enter number): "
+        msg_bbr="Enabling BBR..."
+        msg_bbr_err="Error: Root privileges (sudo) are required to change sysctl parameters."
+        msg_bbr_ok="Done! BBR is activated."
+        msg_ip_check="Checking IP blocks..."
+        msg_ip_geo="Checking Geo-test (streaming platforms)..."
+        msg_yabs="Running YABS (IPv4 only)..."
+        msg_bench="Running Bench.sh..."
+        msg_ru_speed="Checking speed to RU..."
+        msg_speedtest="Downloading and running official Speedtest CLI..."
+        msg_speedtest_arch="Warning: Script downloads x86_64 version. Your architecture: "
+        msg_speedtest_err="Failed to download Speedtest CLI."
+        msg_exit="Returning to main menu..."
+        msg_invalid="Invalid choice. Please try again."
+    fi
+
     echo -e "${CYAN}=====================================================${NC}"
-    echo -e "${YELLOW}  Сборник тестов и бенчмарков для Linux-серверов   ${NC}"
+    echo -e "${YELLOW}  $title   ${NC}"
     echo -e "${CYAN}=====================================================${NC}"
 
     # Меню выбора
-    local PS3="Выберите нужное действие (введите номер): "
+    local PS3="$prompt"
     local options=(
-        "Включить оптимизацию сети (BBR)"
-        "Проверить чистоту IP (IP.Check.Place)"
-        "Проверить геолокацию IP (IP Region)"
-        "Запустить YABS (CPU, Disk, IPv4 Network)"
-        "Запустить Bench.sh (System info & Global Speed)"
-        "Тест скорости до провайдеров в РФ"
-        "Установить и запустить Ookla Speedtest CLI"
-        "Выход"
+        "$opt_bbr"
+        "$opt_ip_check"
+        "$opt_ip_geo"
+        "$opt_yabs"
+        "$opt_bench"
+        "$opt_ru_speed"
+        "$opt_speedtest"
+        "$opt_exit"
     )
 
     select opt in "${options[@]}"
     do
         case $opt in
-            "Включить оптимизацию сети (BBR)")
-                echo -e "\n${YELLOW}>> Включение BBR...${NC}"
+            "$opt_bbr")
+                echo -e "\n${YELLOW}>> $msg_bbr${NC}"
                 if [ "$EUID" -ne 0 ]; then
-                    echo -e "${RED}Ошибка: Для изменения параметров sysctl нужны права root (sudo).${NC}\n"
+                    echo -e "${RED}$msg_bbr_err${NC}\n"
                 else
                     echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
                     echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
                     sysctl -p
-                    echo -e "${GREEN}Готово! BBR активирован.${NC}\n"
+                    echo -e "${GREEN}$msg_bbr_ok${NC}\n"
                 fi
                 ;;
-            "Проверить чистоту IP (IP.Check.Place)")
-                echo -e "\n${YELLOW}>> Проверка блокировок IP...${NC}"
+            "$opt_ip_check")
+                echo -e "\n${YELLOW}>> $msg_ip_check${NC}"
                 bash <(curl -Ls IP.Check.Place | sed '/^\s*show_ad\s*$/d') -l en
                 echo -e "\n"
                 ;;
-            "Проверить геолокацию IP (IP Region)")
-                echo -e "\n${YELLOW}>> Проверка гео-теста (стриминговые платформы)...${NC}"
+            "$opt_ip_geo")
+                echo -e "\n${YELLOW}>> $msg_ip_geo${NC}"
                 bash <(wget -qO- https://github.com/Davoyan/ipregion/raw/main/ipregion.sh)
                 echo -e "\n"
                 ;;
-            "Запустить YABS (CPU, Disk, IPv4 Network)")
-                echo -e "\n${YELLOW}>> Запуск YABS (только IPv4)...${NC}"
+            "$opt_yabs")
+                echo -e "\n${YELLOW}>> $msg_yabs${NC}"
                 curl -sL yabs.sh | bash -s -- -4
                 echo -e "\n"
                 ;;
-            "Запустить Bench.sh (System info & Global Speed)")
-                echo -e "\n${YELLOW}>> Запуск Bench.sh...${NC}"
+            "$opt_bench")
+                echo -e "\n${YELLOW}>> $msg_bench${NC}"
                 wget -qO- bench.sh | bash 
                 echo -e "\n"
                 ;;
-            "Тест скорости до провайдеров в РФ")
-                echo -e "\n${YELLOW}>> Проверка скорости до РФ...${NC}"
+            "$opt_ru_speed")
+                echo -e "\n${YELLOW}>> $msg_ru_speed${NC}"
                 wget -qO- bench.openode.xyz | bash
                 echo -e "\n"
                 ;;
-            "Установить и запустить Ookla Speedtest CLI")
-                echo -e "\n${YELLOW}>> Скачивание и запуск официального Speedtest CLI...${NC}"
+            "$opt_speedtest")
+                echo -e "\n${YELLOW}>> $msg_speedtest${NC}"
                 local ARCH=$(uname -m)
                 if [ "$ARCH" != "x86_64" ]; then
-                    echo -e "${RED}Предупреждение: Скрипт качает версию для x86_64. Ваша архитектура: $ARCH${NC}"
+                    echo -e "${RED}$msg_speedtest_arch$ARCH${NC}"
                 fi
                 
                 # Скачиваем во временную папку, чтобы не мусорить в текущей
@@ -671,19 +795,19 @@ run_benchmarks() {
                     tar -xf ookla-speedtest-1.2.0-linux-x86_64.tgz
                     ./speedtest
                 else
-                    echo -e "${RED}Не удалось скачать Speedtest CLI.${NC}"
+                    echo -e "${RED}$msg_speedtest_err${NC}"
                 fi
                 
                 cd - > /dev/null || exit
                 rm -rf "$TMP_DIR"
                 echo -e "\n"
                 ;;
-            "Выход")
-                echo -e "${GREEN}Возврат в главное меню...${NC}"
+            "$opt_exit")
+                echo -e "${GREEN}$msg_exit${NC}"
                 break
                 ;;
             *) 
-                echo -e "${RED}Неверный выбор $REPLY. Попробуйте еще раз.${NC}"
+                echo -e "${RED}$msg_invalid ($REPLY)${NC}"
                 ;;
         esac
     done
