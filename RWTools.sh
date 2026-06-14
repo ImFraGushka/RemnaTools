@@ -761,9 +761,7 @@ main_menu() {
             "💾 Управление резервными копиями" 
             "📊 Тесты и бенчмарки" 
             "⬆️  Обновить скрипт" 
-            "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
-            "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
-            "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
+            "🗑️  Удалить RemnaTools" 
             "ℹ️  О нас" 
             "❌ Выход"
         )
@@ -777,8 +775,8 @@ main_menu() {
             2) manage_backups ;;
             3) run_benchmarks ;;
             4) "$0" --update ;;
-            5) uninstall_script ;; # Вызов функции удаления
-            5) uninstall_script ;; # Вызов функции удаления
+            5) uninstall_script ;;
+            6) "$0" --about ;;
             7) 
                 clear
                 echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
