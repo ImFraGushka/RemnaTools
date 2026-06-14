@@ -86,9 +86,14 @@ if [ "$1" == "--update" ]; then
     cp "$SCRIPT_PATH" "$BACKUP_PATH"
     echo "✓ Резервная копия создана: $BACKUP_PATH"
     
+    # Удаляем старый скрипт перед скачиванием нового
+    echo "Удаление старой версии скрипта..."
+    sudo rm -f /usr/local/bin/rwtools # Добавлено удаление старого файла
+    
     # Загружаем новую версию
     echo "Обновление файла: $SCRIPT_PATH" # Добавлено для ясности
-    if curl -fsSL "$UPDATE_URL" -o "$SCRIPT_PATH"; then # Используем UPDATE_URL
+    if curl -fsSL "$UPDATE_URL" -o "/tmp/RWTools.sh.new"; then # Скачиваем во временный файл
+        sudo mv "/tmp/RWTools.sh.new" "$SCRIPT_PATH" # Перемещаем новый файл на место старого
         chmod +x "$SCRIPT_PATH"
         echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
         echo "  Перезапустите скрипт для применения изменений."
