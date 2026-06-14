@@ -11,6 +11,12 @@ CONFIG_FILE="/opt/remnatools/config.conf"
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 mkdir -p /opt/remnatools
 
+# Флаг --delete
+if [ "$1" == "--delete" ]; then
+    uninstall_script
+    exit 0
+fi
+
 # Функция загрузки сохраненных параметров
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
@@ -647,6 +653,7 @@ main_menu() {
             "📊 Тесты и бенчмарки" 
             "⬆️  Обновить скрипт" 
             "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
+            "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
             "ℹ️  О нас" 
             "❌ Выход"
         )
@@ -661,7 +668,7 @@ main_menu() {
             3) run_benchmarks ;;
             4) "$0" --update ;;
             5) uninstall_script ;; # Вызов функции удаления
-            6) "$0" --about ;;
+            5) uninstall_script ;; # Вызов функции удаления
             7) 
                 clear
                 echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
