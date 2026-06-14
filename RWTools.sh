@@ -17,6 +17,18 @@ if [ "$1" == "--delete" ]; then
     exit 0
 fi
 
+# Флаг --delete
+if [ "$1" == "--delete" ]; then
+    uninstall_script
+    exit 0
+fi
+
+# Флаг --delete
+if [ "$1" == "--delete" ]; then
+    uninstall_script
+    exit 0
+fi
+
 # Функция загрузки сохраненных параметров
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
@@ -160,10 +172,18 @@ uninstall_script() {
         
         echo "Удаление алиасов из .bashrc и .zshrc..."
         if [ -f ~/.bashrc ]; then
-            sed -i '/alias rwtools/d' ~/.bashrc
+            sed -i 's/^alias rwtools=.*$//' ~/.bashrc 
+            sed -i '/^$/N;/
+$/N;/
+
+/D' ~/.bashrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
         fi
         if [ -f ~/.zshrc ]; then
-            sed -i '/alias rwtools/d' ~/.zshrc
+            sed -i 's/^alias rwtools=.*$//' ~/.zshrc
+            sed -i '/^$/N;/
+$/N;/
+
+/D' ~/.zshrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
         fi
         
         echo -e "\e[1;32m✓ RemnaTools успешно удален!\e[0m"
@@ -660,6 +680,7 @@ main_menu() {
             "💾 Управление резервными копиями" 
             "📊 Тесты и бенчмарки" 
             "⬆️  Обновить скрипт" 
+            "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
             "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
             "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
             "ℹ️  О нас" 
