@@ -8,6 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
+UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 mkdir -p /opt/remnatools
 
 # Функция загрузки сохраненных параметров
@@ -86,12 +87,13 @@ if [ "$1" == "--update" ]; then
     echo "✓ Резервная копия создана: $BACKUP_PATH"
     
     # Загружаем новую версию
-    if curl -fsSL https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh -o "$SCRIPT_PATH"; then
+    echo "Обновление файла: $SCRIPT_PATH" # Добавлено для ясности
+    if curl -fsSL "$UPDATE_URL" -o "$SCRIPT_PATH"; then # Используем UPDATE_URL
         chmod +x "$SCRIPT_PATH"
         echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
         echo "  Перезапустите скрипт для применения изменений."
     else
-        echo -e "\e[1;31m✗ Ошибка при загрузке: проверьте интернет-соединение\e[0m"
+        echo -e "\e[1;31m✗ Ошибка при загрузке: проверьте интернет-соединение или URL обновления (${UPDATE_URL})\e[0m" # Улучшено сообщение об ошибке
         cp "$BACKUP_PATH" "$SCRIPT_PATH"
         echo "  Восстановлена предыдущая версия"
         exit 1
