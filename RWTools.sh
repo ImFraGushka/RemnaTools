@@ -14,25 +14,43 @@ mkdir -p /opt/remnatools
 # --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
 uninstall_script() {
     clear
+    local title="Удаление RemnaTools..."
+    local confirm_msg="Вы уверены, что хотите полностью удалить RemnaTools? (y/n): "
+    local del_bin="Удаление скрипта из /usr/local/bin/rwtools..."
+    local del_alias="Удаление алиасов из .bashrc и .zshrc..."
+    local success="✓ RemnaTools успешно удален!"
+    local cancel="Удаление отменено."
+    local back="Нажмите Enter для возврата..."
+    
+    if [ "$RLANG" == "EN" ]; then
+        title="Uninstalling RemnaTools..."
+        confirm_msg="Are you sure you want to completely uninstall RemnaTools? (y/n): "
+        del_bin="Removing script from /usr/local/bin/rwtools..."
+        del_alias="Removing aliases from .bashrc and .zshrc..."
+        success="✓ RemnaTools uninstalled successfully!"
+        cancel="Uninstallation cancelled."
+        back="Press Enter to return..."
+    fi
+
     echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m           Удаление RemnaTools...                 \e[0m"
+    echo -e "\e[1;32m           $title                 \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
     echo ""
-    read -p "Вы уверены, что хотите полностью удалить RemnaTools? (y/n): " CONFIRM
+    read -p "$confirm_msg" CONFIRM
     
     if [[ "$CONFIRM" =~ ^[YyДд]$ ]]; then
-        echo "Удаление скрипта из /usr/local/bin/rwtools..."
+        echo "$del_bin"
         sudo rm -f /usr/local/bin/rwtools
         
-        echo "Удаление алиасов из .bashrc и .zshrc..."
+        echo "$del_alias"
         [ -f ~/.bashrc ] && sed -i 's/^alias rwtools=.*$//' ~/.bashrc && sed -i '/^$/N;/\n$/N;/\n\n/D' ~/.bashrc
         [ -f ~/.zshrc ] && sed -i 's/^alias rwtools=.*$//' ~/.zshrc && sed -i '/^$/N;/\n$/N;/\n\n/D' ~/.zshrc
         
-        echo -e "\e[1;32m✓ RemnaTools успешно удален!\e[0m"
+        echo -e "\e[1;32m$success\e[0m"
     else
-        echo "Удаление отменено."
+        echo "$cancel"
     fi
-    read -p "Нажмите Enter для возврата..."
+    read -p "$back"
 }
 
 # --- ЗАГРУЗКА КОНФИГА ---
@@ -41,8 +59,10 @@ load_config() {
         # Читаем только валидные переменные (без дефисов в именах), чтобы избежать ошибок Bash
         while IFS='=' read -r key value; do
             if [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
-                export "$key"="${value%\"}"
-                export "$key"="${value#\"}"
+                # Убираем кавычки из значения
+                val="${value%\"}"
+                val="${val#\"}"
+                export "$key"="$val"
             fi
         done < "$CONFIG_FILE"
     fi
@@ -54,6 +74,7 @@ load_config() {
     TG_TOPIC_ID=${TG_TOPIC_ID:-""}
     CRON_CHOICE=${CRON_CHOICE:-""}
     USER_TIME=${USER_TIME:-""}
+    RLANG=${RLANG:-""} # Переменная для языка
 }
 
 # Функция сохранения параметров
@@ -66,28 +87,77 @@ TG_CHAT_ID="$TG_CHAT_ID"
 TG_TOPIC_ID="$TG_TOPIC_ID"
 CRON_CHOICE="$CRON_CHOICE"
 USER_TIME="$USER_TIME"
+RLANG="$RLANG"
 EOF
+}
+
+# Функция выбора языка
+choose_language() {
+    if [ -z "$RLANG" ]; then
+        clear
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;32m       Select Language / Выберите язык            \e[0m"
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo "1) English"
+        echo "2) Русский"
+        read -p "Choice / Выбор (1-2): " LANG_CHOICE
+        
+        if [ "$LANG_CHOICE" == "2" ]; then
+            RLANG="RU"
+        else
+            RLANG="EN"
+        fi
+        save_config
+    fi
+}
+
+# Функция смены языка (через меню)
+change_language_menu() {
+    RLANG="" # Сбрасываем текущий язык
+    choose_language
+    echo -e "\e[1;32m Language changed / Язык изменен!\e[0m"
+    sleep 1
 }
 
 # Функция "О нас"
 show_about() {
     clear
-    echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m                  🚀 RemnaTools v1.2.0             \e[0m"
-    echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;33m📋 Описание:\e[0m"
-    echo -e "   Ультимативный CLI-инструмент для управления"
-    echo -e "   экосистемой Remnawave на Linux/Ubuntu серверах."
-    echo -e ""
-    echo -e "\e[1;33m✨ Основные возможности:\e[0m"
-    echo -e "   ✓ Автоустановка Панели (Caddy + PostgreSQL + Docker)"
-    echo -e "   ✓ Автоустановка Ноды (с BBR3, IPv6-off, SelfSteal)"
-    echo -e "   ✓ Управление автоматическими бэкапами"
-    echo -e "   ✓ Быстрое восстановление из бэкапа"
-    echo -e "   ✓ Сборник тестов и бенчмарков для Linux-серверов"
-    echo -e ""
-    echo -e "\e[1;33m📱 Поддерживаемые системы:\e[0m"
-    echo -e "   Ubuntu 18.04+ • Debian 10+"
+    local ver="v1.2.1"
+    if [ "$RLANG" == "RU" ]; then
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;32m                  🚀 RemnaTools $ver             \e[0m"
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;33m📋 Описание:\e[0m"
+        echo -e "   Ультимативный CLI-инструмент для управления"
+        echo -e "   экосистемой Remnawave на Linux/Ubuntu серверах."
+        echo -e ""
+        echo -e "\e[1;33m✨ Основные возможности:\e[0m"
+        echo -e "   ✓ Автоустановка Панели (Caddy + PostgreSQL + Docker)"
+        echo -e "   ✓ Автоустановка Ноды (с BBR3, IPv6-off, SelfSteal)"
+        echo -e "   ✓ Управление автоматическими бэкапами"
+        echo -e "   ✓ Быстрое восстановление из бэкапа"
+        echo -e "   ✓ Сборник тестов и бенчмарков для Linux-серверов"
+        echo -e ""
+        echo -e "\e[1;33m📱 Поддерживаемые системы:\e[0m"
+        echo -e "   Ubuntu 18.04+ • Debian 10+"
+    else
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;32m                  🚀 RemnaTools $ver             \e[0m"
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;33m📋 Description:\e[0m"
+        echo -e "   Ultimate CLI tool for managing the"
+        echo -e "   Remnawave ecosystem on Linux/Ubuntu servers."
+        echo -e ""
+        echo -e "\e[1;33m✨ Key Features:\e[0m"
+        echo -e "   ✓ Auto-install Panel (Caddy + PostgreSQL + Docker)"
+        echo -e "   ✓ Auto-install Node (with BBR3, IPv6-off, SelfSteal)"
+        echo -e "   ✓ Automatic Backup Management"
+        echo -e "   ✓ Fast Backup Restoration"
+        echo -e "   ✓ Test & Benchmark collection for Linux servers"
+        echo -e ""
+        echo -e "\e[1;33m📱 Supported Systems:\e[0m"
+        echo -e "   Ubuntu 18.04+ • Debian 10+"
+    fi
     echo -e ""
     echo -e "\e[1;36m====================================================\e[0m"
 }
@@ -149,6 +219,7 @@ update_script() {
 
 # Инициализируем конфиг при старте
 load_config
+choose_language
 
 # Флаг --about
 if [ "$1" == "--about" ]; then
@@ -666,22 +737,45 @@ interactive_menu() {
 main_menu() {
     while true; do
         clear
+        local title="🚀 RemnaTools v1.2.1 (CLI)"
+        local prompt="Выберите действие:"
+        if [ "$RLANG" == "EN" ]; then
+            title="🚀 RemnaTools v1.2.1 (CLI)"
+            prompt="Select an action:"
+        fi
+
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m          🚀 RemnaTools v1.0.1 (CLI)              \e[0m"
+        echo -e "\e[1;32m          $title              \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         
-        local -a menu_options=(
-            "🔧 Автоустановка Панели (Caddy + DB + Docker)" 
-            "🖥️  Автоустановка Remna Node" 
-            "💾 Управление резервными копиями" 
-            "📊 Тесты и бенчмарки" 
-            "⬆️  Обновить скрипт" 
-            "🗑️  Удалить RemnaTools" 
-            "ℹ️  О нас" 
-            "❌ Выход"
-        )
+        local -a menu_options
+        if [ "$RLANG" == "RU" ]; then
+            menu_options=(
+                "🔧 Автоустановка Панели (Caddy + DB + Docker)" 
+                "🖥️  Автоустановка Remna Node" 
+                "💾 Управление резервными копиями" 
+                "📊 Тесты и бенчмарки" 
+                "⬆️  Обновить скрипт" 
+                "🗑️  Удалить RemnaTools" 
+                "ℹ️  О нас" 
+                "🌐 Сменить язык (Change Language)"
+                "❌ Выход"
+            )
+        else
+            menu_options=(
+                "🔧 Auto-install Panel (Caddy + DB + Docker)" 
+                "🖥️  Auto-install Remna Node" 
+                "💾 Backup Management" 
+                "📊 Tests & Benchmarks" 
+                "⬆️  Update Script" 
+                "🗑️  Uninstall RemnaTools" 
+                "ℹ️  About Us" 
+                "🌐 Change Language (Сменить язык)"
+                "❌ Exit"
+            )
+        fi
         
-        interactive_menu menu_options "$(echo -e '\e[1;33mВыберите действие:\e[0m')"
+        interactive_menu menu_options "$(echo -e "\e[1;33m$prompt\e[0m")"
         local choice=$?
         
         case $choice in
@@ -689,15 +783,16 @@ main_menu() {
             1) install_node ;;
             2) manage_backups ;;
             3) run_benchmarks ;;
-            4) update_script; read -p "Нажмите Enter для возврата..." ;;
+            4) update_script; [ "$RLANG" == "RU" ] && read -p "Нажмите Enter для возврата..." || read -p "Press Enter to return..." ;;
             5) uninstall_script ;;
-            6) show_about; read -p "Нажмите Enter для возврата..." ;;
-            7) 
+            6) show_about; [ "$RLANG" == "RU" ] && read -p "Нажмите Enter для возврата..." || read -p "Press Enter to return..." ;;
+            7) change_language_menu ;;
+            8) 
                 clear
-                echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
+                [ "$RLANG" == "RU" ] && echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m" || echo -e "\e[1;32mThanks for using RemnaTools! 👋\e[0m"
                 exit 0
                 ;;
-            *) echo "Неверный выбор." && sleep 1 ;;
+            *) echo "Error." && sleep 1 ;;
         esac
     done
 }
