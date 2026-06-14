@@ -133,6 +133,12 @@ if [ "$1" == "--install" ]; then
         echo "alias rwtools='sudo rwtools'" >> ~/.zshrc
     fi
     
+    # Экранируем слеш в sed для корректного удаления алиаса
+        sed -i 's/^alias rwtools=.*$//' ~/.zshrc
+        sed -i '/^$/N;$/N;/
+
+/D' ~/.zshrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
+    
     echo -e "\e[1;32m✓ Команда установлена!\e[0m"
     echo "  Используйте: rwtools"
     echo "  или: sudo rwtools"
@@ -539,6 +545,8 @@ run_benchmarks() {
             "Проверить чистоту IP (IP.Check.Place)")
                 echo -e "\n${YELLOW}>> Проверка блокировок IP...${NC}"
                 bash <(curl -Ls IP.Check.Place | sed '/^\s*show_ad\s*$/d') -l en
+                echo -e "\n"
+                ;;
                 echo -e "\n"
                 ;;
             "Проверить геолокацию IP (IP Region)")
