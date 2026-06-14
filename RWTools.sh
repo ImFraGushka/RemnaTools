@@ -131,11 +131,9 @@ USER_TIME="$USER_TIME"
 EOF
 }
 
-# Инициализируем конфиг при старте
-load_config
-
-# Флаг --about
-if [ "$1" == "--about" ]; then
+# Функция "О нас"
+show_about() {
+    clear
     echo -e "\e[1;36m====================================================\e[0m"
     echo -e "\e[1;32m                  🚀 RemnaTools v1.0.1             \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
@@ -154,11 +152,11 @@ if [ "$1" == "--about" ]; then
     echo -e "   Ubuntu 18.04+ • Debian 10+"
     echo -e ""
     echo -e "\e[1;36m====================================================\e[0m"
-    exit 0
-fi
+}
 
-# Флаг --update
-if [ "$1" == "--update" ]; then
+# Функция обновления
+update_script() {
+    clear
     echo -e "\e[1;36m====================================================\e[0m"
     echo -e "\e[1;32m           Обновление RemnaTools...                 \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
@@ -174,14 +172,14 @@ if [ "$1" == "--update" ]; then
         if [ ! -s "$TMP_FILE" ]; then
             echo -e "\e[1;31m✗ Ошибка: Скачанный файл пуст.\e[0m"
             rm -f "$TMP_FILE"
-            exit 1
+            return 1
         fi
         
         # Проверяем синтаксис скачанного файла перед заменой
         if ! bash -n "$TMP_FILE"; then
             echo -e "\e[1;31m✗ Ошибка: Скачанный файл содержит синтаксические ошибки.\e[0m"
             rm -f "$TMP_FILE"
-            exit 1
+            return 1
         fi
         
         # Создаем резервную копию текущего скрипта
@@ -198,6 +196,8 @@ if [ "$1" == "--update" ]; then
             fi
             echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
             echo "  Перезапустите скрипт для применения изменений."
+            rm -f "$TMP_FILE"
+            exit 0 # При успехе выходим, так как файл изменился
         else
             echo -e "\e[1;31m✗ Ошибка при копировании файла.\e[0m"
             sudo mv "$BACKUP_PATH" "$SCRIPT_PATH"
@@ -205,9 +205,24 @@ if [ "$1" == "--update" ]; then
         rm -f "$TMP_FILE"
     else
         echo -e "\e[1;31m✗ Ошибка при загрузке: проверьте интернет-соединение.\e[0m"
-        exit 1
+        return 1
     fi
+}
+
+# Инициализируем конфиг при старте
+load_config
+
+# Флаг --about
+if [ "$1" == "--about" ]; then
+    show_about
     exit 0
+fi
+
+# Флаг --update
+if [ "$1" == "--update" ]; then
+    update_script
+    exit 0
+fi
 fi
 
 # Флаг --install (установка rwtools команды)
@@ -774,9 +789,9 @@ main_menu() {
             1) install_node ;;
             2) manage_backups ;;
             3) run_benchmarks ;;
-            4) "$0" --update; read -p "Нажмите Enter для возврата..." ;;
+            4) update_script; read -p "Нажмите Enter для возврата..." ;;
             5) uninstall_script ;;
-            6) "$0" --about; read -p "Нажмите Enter для возврата..." ;;
+            6) show_about; read -p "Нажмите Enter для возврата..." ;;
             7) 
                 clear
                 echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
