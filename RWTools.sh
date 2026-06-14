@@ -61,6 +61,7 @@ if [ "$1" == "--about" ]; then
     echo -e "   ✓ Автоустановка Ноды (с BBR3, IPv6-off, SelfSteal)"
     echo -e "   ✓ Управление автоматическими бэкапами"
     echo -e "   ✓ Быстрое восстановление из бэкапа"
+    echo -e "   ✓ Сборник тестов и бенчмарков для Linux-серверов"
     echo -e ""
     echo -e "\e[1;33m📱 Поддерживаемые системы:\e[0m"
     echo -e "   Ubuntu 18.04+ • Debian 10+"
@@ -452,6 +453,104 @@ manage_backups() {
     done
 }
 
+run_benchmarks() {
+    clear
+    # Цвета для оформления
+    local GREEN='\033[0;32m'
+    local CYAN='\033[0;36m'
+    local YELLOW='\033[1;33m'
+    local RED='\033[0;31m'
+    local NC='\033[0m' # Без цвета
+
+    echo -e "${CYAN}=====================================================${NC}"
+    echo -e "${YELLOW}  Сборник тестов и бенчмарков для Linux-серверов   ${NC}"
+    echo -e "${CYAN}=====================================================${NC}"
+
+    # Меню выбора
+    local PS3="Выберите нужное действие (введите номер): "
+    local options=(
+        "Включить оптимизацию сети (BBR)"
+        "Проверить чистоту IP (IP.Check.Place)"
+        "Проверить геолокацию IP (IP Region)"
+        "Запустить YABS (CPU, Disk, IPv4 Network)"
+        "Запустить Bench.sh (System info & Global Speed)"
+        "Тест скорости до провайдеров в РФ"
+        "Установить и запустить Ookla Speedtest CLI"
+        "Выход"
+    )
+
+    select opt in "${options[@]}"
+    do
+        case $opt in
+            "Включить оптимизацию сети (BBR)")
+                echo -e "\n${YELLOW}>> Включение BBR...${NC}"
+                if [ "$EUID" -ne 0 ]; then
+                    echo -e "${RED}Ошибка: Для изменения параметров sysctl нужны права root (sudo).${NC}\n"
+                else
+                    echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+                    echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+                    sysctl -p
+                    echo -e "${GREEN}Готово! BBR активирован.${NC}\n"
+                fi
+                ;;
+            "Проверить чистоту IP (IP.Check.Place)")
+                echo -e "\n${YELLOW}>> Проверка блокировок IP...${NC}"
+                bash <(curl -Ls IP.Check.Place | sed '/^\s*show_ad\s*$/d') -l en
+                echo -e "\n"
+                ;;
+            "Проверить геолокацию IP (IP Region)")
+                echo -e "\n${YELLOW}>> Проверка гео-теста (стриминговые платформы)...${NC}"
+                bash <(wget -qO- https://github.com/Davoyan/ipregion/raw/main/ipregion.sh)
+                echo -e "\n"
+                ;;
+            "Запустить YABS (CPU, Disk, IPv4 Network)")
+                echo -e "\n${YELLOW}>> Запуск YABS (только IPv4)...${NC}"
+                curl -sL yabs.sh | bash -s -- -4
+                echo -e "\n"
+                ;;
+            "Запустить Bench.sh (System info & Global Speed)")
+                echo -e "\n${YELLOW}>> Запуск Bench.sh...${NC}"
+                wget -qO- bench.sh | bash 
+                echo -e "\n"
+                ;;
+            "Тест скорости до провайдеров в РФ")
+                echo -e "\n${YELLOW}>> Проверка скорости до РФ...${NC}"
+                wget -qO- bench.openode.xyz | bash
+                echo -e "\n"
+                ;;
+            "Установить и запустить Ookla Speedtest CLI")
+                echo -e "\n${YELLOW}>> Скачивание и запуск официального Speedtest CLI...${NC}"
+                local ARCH=$(uname -m)
+                if [ "$ARCH" != "x86_64" ]; then
+                    echo -e "${RED}Предупреждение: Скрипт качает версию для x86_64. Ваша архитектура: $ARCH${NC}"
+                fi
+                
+                # Скачиваем во временную папку, чтобы не мусорить в текущей
+                local TMP_DIR=$(mktemp -d)
+                cd "$TMP_DIR" || exit
+                
+                if wget https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz; then
+                    tar -xf ookla-speedtest-1.2.0-linux-x86_64.tgz
+                    ./speedtest
+                else
+                    echo -e "${RED}Не удалось скачать Speedtest CLI.${NC}"
+                fi
+                
+                cd - > /dev/null || exit
+                rm -rf "$TMP_DIR"
+                echo -e "\n"
+                ;;
+            "Выход")
+                echo -e "${GREEN}Возврат в главное меню...${NC}"
+                break
+                ;;
+            *) 
+                echo -e "${RED}Неверный выбор $REPLY. Попробуйте еще раз.${NC}"
+                ;;
+        esac
+    done
+}
+
 # --- ФУНКЦИЯ ИНТЕРАКТИВНОГО МЕНЮ ---
 interactive_menu() {
     local -n options=$1
@@ -508,9 +607,10 @@ main_menu() {
             "🔧 Автоустановка Панели (Caddy + DB + Docker)" \
             "🖥️  Автоустановка Remna Node" \
             "💾 Управление резервными копиями" \
+            "📊 Тесты и бенчмарки" \
             "⬆️  Обновить скрипт" \
             "ℹ️  О нас" \
-            "❌ Выход"
+            "❌ Выход" \
         )
         
         interactive_menu menu_options "$(echo -e '\e[1;33mВыберите действие:\e[0m')"
@@ -520,9 +620,10 @@ main_menu() {
             0) install_panel ;;
             1) install_node ;;
             2) manage_backups ;;
-            3) "$0" --update ;;
-            4) "$0" --about ;;
-            5) 
+            3) run_benchmarks ;;
+            4) "$0" --update ;;
+            5) "$0" --about ;;
+            6) 
                 clear
                 echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
                 exit 0
