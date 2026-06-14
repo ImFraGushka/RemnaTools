@@ -8,6 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
+VERSION="v1.2.2" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 mkdir -p /opt/remnatools
 
@@ -122,10 +123,9 @@ change_language_menu() {
 # Функция "О нас"
 show_about() {
     clear
-    local ver="v1.2.1"
     if [ "$RLANG" == "RU" ]; then
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m                  🚀 RemnaTools $ver             \e[0m"
+        echo -e "\e[1;32m                  🚀 RemnaTools $VERSION             \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         echo -e "\e[1;33m📋 Описание:\e[0m"
         echo -e "   Ультимативный CLI-инструмент для управления"
@@ -861,10 +861,10 @@ interactive_menu() {
 main_menu() {
     while true; do
         clear
-        local title="🚀 RemnaTools v1.2.1 (CLI)"
+        local title="🚀 RemnaTools $VERSION (CLI)"
         local prompt="Выберите действие:"
         if [ "$RLANG" == "EN" ]; then
-            title="🚀 RemnaTools v1.2.1 (CLI)"
+            title="🚀 RemnaTools $VERSION (CLI)"
             prompt="Select an action:"
         fi
 
