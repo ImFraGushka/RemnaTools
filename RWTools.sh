@@ -223,7 +223,6 @@ if [ "$1" == "--update" ]; then
     update_script
     exit 0
 fi
-fi
 
 # Флаг --install (установка rwtools команды)
 if [ "$1" == "--install" ]; then
