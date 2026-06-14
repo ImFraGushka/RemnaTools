@@ -1,4 +1,4 @@
-# 🚀 RemnaTools v1.0.1
+# 🚀 RemnaTools v1.2.0
 
 choose your language: [Русский](https://github.com/ImFraGushka/RemnaTools/blob/main/README_RU.md)
 
