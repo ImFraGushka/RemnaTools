@@ -162,32 +162,49 @@ if [ "$1" == "--update" ]; then
     echo -e "\e[1;36m====================================================\e[0m"
     echo -e "\e[1;32m           Обновление RemnaTools...                 \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
-    echo "Загрузка последней версии со GitHub..."
+    echo "Загрузка последней версии с GitHub..."
     
     # Определяем путь к текущему исполняемому файлу
     SCRIPT_PATH=$(realpath "${BASH_SOURCE[0]}")
-    BACKUP_PATH="$SCRIPT_PATH.backup.$(date +%Y%m%d_%H%M%S)"
     
-    # Создаем резервную копию
-    cp "$SCRIPT_PATH" "$BACKUP_PATH"
-    echo "✓ Резервная копия создана: $BACKUP_PATH"
-    
-    # Удаляем старый скрипт перед скачиванием нового
-    echo "Удаление старой версии скрипта..."
-    sudo rm -f /usr/local/bin/rwtools # Добавлено удаление старого файла
-    
-    # Загружаем новую версию
-    echo "Обновление файла: $SCRIPT_PATH" # Добавлено для ясности
-    if curl -fsSL "$UPDATE_URL" -o "/tmp/RWTools.sh.new"; then # Скачиваем во временный файл
-        # Перезаписываем текущий скрипт новым файлом
-        sudo mv "/tmp/RWTools.sh.new" "$SCRIPT_PATH" # Перемещаем новый файл на место старого
-        chmod +x "$SCRIPT_PATH"
-        echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
-        echo "  Перезапустите скрипт для применения изменений."
+    # Загружаем новую версию во временный файл
+    TMP_FILE=$(mktemp)
+    if curl -fsSL "$UPDATE_URL" -o "$TMP_FILE"; then
+        # Проверяем, не пустой ли файл скачался
+        if [ ! -s "$TMP_FILE" ]; then
+            echo -e "\e[1;31m✗ Ошибка: Скачанный файл пуст.\e[0m"
+            rm -f "$TMP_FILE"
+            exit 1
+        fi
+        
+        # Проверяем синтаксис скачанного файла перед заменой
+        if ! bash -n "$TMP_FILE"; then
+            echo -e "\e[1;31m✗ Ошибка: Скачанный файл содержит синтаксические ошибки.\e[0m"
+            rm -f "$TMP_FILE"
+            exit 1
+        fi
+        
+        # Создаем резервную копию текущего скрипта
+        BACKUP_PATH="$SCRIPT_PATH.bak"
+        sudo cp "$SCRIPT_PATH" "$BACKUP_PATH"
+        
+        # Обновляем основной файл
+        if sudo cp "$TMP_FILE" "$SCRIPT_PATH"; then
+            sudo chmod +x "$SCRIPT_PATH"
+            # Если скрипт установлен в /usr/local/bin, обновляем и там
+            if [ "$SCRIPT_PATH" != "/usr/local/bin/rwtools" ] && [ -f /usr/local/bin/rwtools ]; then
+                sudo cp "$TMP_FILE" /usr/local/bin/rwtools
+                sudo chmod +x /usr/local/bin/rwtools
+            fi
+            echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
+            echo "  Перезапустите скрипт для применения изменений."
+        else
+            echo -e "\e[1;31m✗ Ошибка при копировании файла.\e[0m"
+            sudo mv "$BACKUP_PATH" "$SCRIPT_PATH"
+        fi
+        rm -f "$TMP_FILE"
     else
-        echo -e "\e[1;31m✗ Ошибка при загрузке: проверьте интернет-соединение или URL обновления (${UPDATE_URL})\e[0m" # Улучшено сообщение об ошибке
-        cp "$BACKUP_PATH" "$SCRIPT_PATH"
-        echo "  Восстановлена предыдущая версия"
+        echo -e "\e[1;31m✗ Ошибка при загрузке: проверьте интернет-соединение.\e[0m"
         exit 1
     fi
     exit 0
@@ -207,17 +224,15 @@ if [ "$1" == "--install" ]; then
     
     # Создаем алиас в bashrc и zshrc для быстрого доступа
     if [ -f ~/.bashrc ]; then
-        echo "alias rwtools='sudo rwtools'" >> ~/.bashrc
+        if ! grep -q "alias rwtools=" ~/.bashrc; then
+            echo "alias rwtools='sudo rwtools'" >> ~/.bashrc
+        fi
     fi
     if [ -f ~/.zshrc ]; then
-        echo "alias rwtools='sudo rwtools'" >> ~/.zshrc
+        if ! grep -q "alias rwtools=" ~/.zshrc; then
+            echo "alias rwtools='sudo rwtools'" >> ~/.zshrc
+        fi
     fi
-    
-    # Экранируем слеш в sed для корректного удаления алиаса
-        sed -i 's/^alias rwtools=.*$//' ~/.zshrc
-        sed -i '/^$/N;$/N;/
-
-/D' ~/.zshrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
     
     echo -e "\e[1;32m✓ Команда установлена!\e[0m"
     echo "  Используйте: rwtools"
@@ -635,8 +650,6 @@ run_benchmarks() {
                 bash <(curl -Ls IP.Check.Place | sed '/^\s*show_ad\s*$/d') -l en
                 echo -e "\n"
                 ;;
-                echo -e "\\\\\\n"
-                ;;
             "Проверить геолокацию IP (IP Region)")
                 echo -e "\n${YELLOW}>> Проверка гео-теста (стриминговые платформы)...${NC}"
                 bash <(wget -qO- https://github.com/Davoyan/ipregion/raw/main/ipregion.sh)
@@ -647,7 +660,7 @@ run_benchmarks() {
                 curl -sL yabs.sh | bash -s -- -4
                 echo -e "\n"
                 ;;
-            "Запустить Bench.sh (System info & Global Speed)"
+            "Запустить Bench.sh (System info & Global Speed)")
                 echo -e "\n${YELLOW}>> Запуск Bench.sh...${NC}"
                 wget -qO- bench.sh | bash 
                 echo -e "\n"
