@@ -93,8 +93,7 @@ if [ "$1" == "--update" ]; then
     # Загружаем новую версию
     echo "Обновление файла: $SCRIPT_PATH" # Добавлено для ясности
     if curl -fsSL "$UPDATE_URL" -o "/tmp/RWTools.sh.new"; then # Скачиваем во временный файл
-        # Удаляем старый скрипт перед перезаписью
-        sudo rm -f "$SCRIPT_PATH" # Удаляем текущий скрипт
+        # Перезаписываем текущий скрипт новым файлом
         sudo mv "/tmp/RWTools.sh.new" "$SCRIPT_PATH" # Перемещаем новый файл на место старого
         chmod +x "$SCRIPT_PATH"
         echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
@@ -133,6 +132,35 @@ if [ "$1" == "--install" ]; then
     echo "  или: sudo rwtools"
     exit 0
 fi
+
+# --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
+uninstall_script() {
+    clear
+    echo -e "\e[1;36m====================================================\e[0m"
+    echo -e "\e[1;32m           Удаление RemnaTools...                 \e[0m"
+    echo -e "\e[1;36m====================================================\e[0m"
+    echo ""
+    read -p "Вы уверены, что хотите полностью удалить RemnaTools? (y/n): " CONFIRM
+    
+    if [[ "$CONFIRM" =~ ^[YyДд]$ ]]; then
+        echo "Удаление скрипта из /usr/local/bin/rwtools..."
+        sudo rm -f /usr/local/bin/rwtools
+        
+        echo "Удаление алиасов из .bashrc и .zshrc..."
+        if [ -f ~/.bashrc ]; then
+            sed -i '/alias rwtools/d' ~/.bashrc
+        fi
+        if [ -f ~/.zshrc ]; then
+            sed -i '/alias rwtools/d' ~/.zshrc
+        fi
+        
+        echo -e "\e[1;32m✓ RemnaTools успешно удален!\e[0m"
+    else
+        echo "Удаление отменено."
+    fi
+    
+    read -p "Нажмите Enter для возврата..."
+}
 
 # --- ФУНКЦИИ УСТАНОВКИ ---
 
@@ -612,14 +640,15 @@ main_menu() {
         echo -e "\e[1;32m          🚀 RemnaTools v1.0.1 (CLI)              \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         
-        local -a menu_options=(\
-            "🔧 Автоустановка Панели (Caddy + DB + Docker)" \
-            "🖥️  Автоустановка Remna Node" \
-            "💾 Управление резервными копиями" \
-            "📊 Тесты и бенчмарки" \
-            "⬆️  Обновить скрипт" \
-            "ℹ️  О нас" \
-            "❌ Выход" \
+        local -a menu_options=(
+            "🔧 Автоустановка Панели (Caddy + DB + Docker)" 
+            "🖥️  Автоустановка Remna Node" 
+            "💾 Управление резервными копиями" 
+            "📊 Тесты и бенчмарки" 
+            "⬆️  Обновить скрипт" 
+            "🗑️  Удалить RemnaTools" # Добавлен пункт удаления
+            "ℹ️  О нас" 
+            "❌ Выход"
         )
         
         interactive_menu menu_options "$(echo -e '\e[1;33mВыберите действие:\e[0m')"
@@ -631,8 +660,9 @@ main_menu() {
             2) manage_backups ;;
             3) run_benchmarks ;;
             4) "$0" --update ;;
-            5) "$0" --about ;;
-            6) 
+            5) uninstall_script ;; # Вызов функции удаления
+            6) "$0" --about ;;
+            7) 
                 clear
                 echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m"
                 exit 0
