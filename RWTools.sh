@@ -25,79 +25,17 @@ uninstall_script() {
         sudo rm -f /usr/local/bin/rwtools
         
         echo "Удаление алиасов из .bashrc и .zshrc..."
-        if [ -f ~/.bashrc ]; then
-            sed -i 's/^alias rwtools=.*$//' ~/.bashrc 
-            sed -i '/^$/N;/
-$/N;/
-
-/D' ~/.bashrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
-        fi
-        if [ -f ~/.zshrc ]; then
-            sed -i 's/^alias rwtools=.*$//' ~/.zshrc
-            sed -i '/^$/N;/
-$/N;/
-
-/D' ~/.zshrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
-        fi
+        [ -f ~/.bashrc ] && sed -i 's/^alias rwtools=.*$//' ~/.bashrc && sed -i '/^$/N;/\n$/N;/\n\n/D' ~/.bashrc
+        [ -f ~/.zshrc ] && sed -i 's/^alias rwtools=.*$//' ~/.zshrc && sed -i '/^$/N;/\n$/N;/\n\n/D' ~/.zshrc
         
         echo -e "\e[1;32m✓ RemnaTools успешно удален!\e[0m"
     else
         echo "Удаление отменено."
     fi
-    
     read -p "Нажмите Enter для возврата..."
 }
 
-# Флаг --delete
-if [ "$1" == "--delete" ]; then
-    uninstall_script
-    exit 0
-fi
-
-# Флаг --delete
-if [ "$1" == "--delete" ]; then
-    uninstall_script
-    exit 0
-fi
-
-# --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
-uninstall_script() {
-    clear
-    echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m           Удаление RemnaTools...                 \e[0m"
-    echo -e "\e[1;36m====================================================\e[0m"
-    echo ""
-    read -p "Вы уверены, что хотите полностью удалить RemnaTools? (y/n): " CONFIRM
-    
-    if [[ "$CONFIRM" =~ ^[YyДд]$ ]]; then
-        echo "Удаление скрипта из /usr/local/bin/rwtools..."
-        sudo rm -f /usr/local/bin/rwtools
-        
-        echo "Удаление алиасов из .bashrc и .zshrc..."
-        if [ -f ~/.bashrc ]; then
-            sed -i 's/^alias rwtools=.*$//' ~/.bashrc 
-            sed -i '/^$/N;/
-$/N;/
-
-/D' ~/.bashrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
-        fi
-        if [ -f ~/.zshrc ]; then
-            sed -i 's/^alias rwtools=.*$//' ~/.zshrc
-            sed -i '/^$/N;/
-$/N;/
-
-/D' ~/.zshrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
-        fi
-        
-        echo -e "\e[1;32m✓ RemnaTools успешно удален!\e[0m"
-    else
-        echo "Удаление отменено."
-    fi
-    
-    read -p "Нажмите Enter для возврата..."
-}
-
-# Флаг --delete
+# --- ЗАГРУЗКА КОНФИГА ---
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
         # Читаем только валидные переменные (без дефисов в именах), чтобы избежать ошибок Bash
@@ -253,43 +191,6 @@ if [ "$1" == "--install" ]; then
     echo "  или: sudo rwtools"
     exit 0
 fi
-
-# --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
-uninstall_script() {
-    clear
-    echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m           Удаление RemnaTools...                 \e[0m"
-    echo -e "\e[1;36m====================================================\e[0m"
-    echo ""
-    read -p "Вы уверены, что хотите полностью удалить RemnaTools? (y/n): " CONFIRM
-    
-    if [[ "$CONFIRM" =~ ^[YyДд]$ ]]; then
-        echo "Удаление скрипта из /usr/local/bin/rwtools..."
-        sudo rm -f /usr/local/bin/rwtools
-        
-        echo "Удаление алиасов из .bashrc и .zshrc..."
-        if [ -f ~/.bashrc ]; then
-            sed -i 's/^alias rwtools=.*$//' ~/.bashrc 
-            sed -i '/^$/N;/
-$/N;/
-
-/D' ~/.bashrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
-        fi
-        if [ -f ~/.zshrc ]; then
-            sed -i 's/^alias rwtools=.*$//' ~/.zshrc
-            sed -i '/^$/N;/
-$/N;/
-
-/D' ~/.zshrc # Удаляем пустые строки, образовавшиеся после удаления алиаса
-        fi
-        
-        echo -e "\e[1;32m✓ RemnaTools успешно удален!\e[0m"
-    else
-        echo "Удаление отменено."
-    fi
-    
-    read -p "Нажмите Enter для возврата..."
-}
 
 # --- ФУНКЦИИ УСТАНОВКИ ---
 
