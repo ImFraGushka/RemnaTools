@@ -510,7 +510,7 @@ run_benchmarks() {
                 curl -sL yabs.sh | bash -s -- -4
                 echo -e "\n"
                 ;;
-            "Запустить Bench.sh (System info & Global Speed)")
+            "Запустить Bench.sh (System info & Global Speed)"
                 echo -e "\n${YELLOW}>> Запуск Bench.sh...${NC}"
                 wget -qO- bench.sh | bash 
                 echo -e "\n"
