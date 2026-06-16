@@ -1,4 +1,4 @@
-# 🚀 RemnaTools v1.2.0
+# 🚀 RemnaTools v1.2.2
 
 choose your language: [Русский](https://github.com/ImFraGushka/RemnaTools/blob/main/README_RU.md)
 
@@ -110,6 +110,6 @@ For questions and issues, contact: https://t.me/FraG_mmM
 
 ---
 
-**Version:** 1.0.1  
+**Version:** 1.2.2  
 **License:** MIT  
 **Compatibility:** Linux/Ubuntu 18.04+
