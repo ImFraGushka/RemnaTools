@@ -8,7 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.2.2" # Текущая версия скрипта
+VERSION="v1.3.0" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 mkdir -p /opt/remnatools
 
@@ -142,7 +142,7 @@ show_about() {
         echo -e "   Ubuntu 18.04+ • Debian 10+"
     else
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m                  🚀 RemnaTools $ver             \e[0m"
+        echo -e "\e[1;32m                  🚀 RemnaTools $VERSION             \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         echo -e "\e[1;33m📋 Description:\e[0m"
         echo -e "   Ultimate CLI tool for managing the"
@@ -217,6 +217,61 @@ update_script() {
     fi
 }
 
+# --- ФУНКЦИЯ ПРОВЕРКИ И УСТАНОВКИ ЗАВИСИМОСТЕЙ ---
+install_dependencies() {
+    local packages_to_install=()
+    local dependencies=("curl" "wget" "git" "tar" "openssl" "nftables")
+    
+    # Интернационализация сообщений
+    local msg_checking="Проверка зависимостей..."
+    local msg_installing="Установка недостающих пакетов:"
+    local msg_docker_prompt="Docker не найден. Он необходим для работы Панели и Ноды. Установить Docker? (y/n): "
+    local msg_docker_installing="Установка Docker..."
+    local msg_docker_ok="✓ Docker успешно установлен."
+    local msg_docker_skip="Установка Docker пропущена."
+    local msg_all_ok="✓ Все зависимости установлены."
+
+    if [ "$RLANG" == "EN" ]; then
+        msg_checking="Checking dependencies..."
+        msg_installing="Installing missing packages:"
+        msg_docker_prompt="Docker not found. It is required for the Panel and Node to work. Install Docker? (y/n): "
+        msg_docker_installing="Installing Docker..."
+        msg_docker_ok="✓ Docker installed successfully."
+        msg_docker_skip="Docker installation skipped."
+        msg_all_ok="✓ All dependencies are installed."
+    fi
+
+    echo "$msg_checking"
+    
+    # Проверяем наличие каждого пакета
+    for pkg in "${dependencies[@]}"; do
+        if ! command -v $pkg &> /dev/null; then
+            packages_to_install+=($pkg)
+        fi
+    done
+    
+    # Если есть что установить
+    if [ ${#packages_to_install[@]} -ne 0 ]; then
+        echo "$msg_installing ${packages_to_install[*]}"
+        apt-get update
+        apt-get install -y "${packages_to_install[@]}"
+    fi
+
+    # Отдельно проверяем Docker
+    if ! command -v docker &> /dev/null; then
+        read -p "$msg_docker_prompt" INSTALL_DOCKER
+        if [[ "$INSTALL_DOCKER" =~ ^[YyДд]$ ]]; then
+            echo "$msg_docker_installing"
+            curl -fsSL https://get.docker.com | sh
+            echo -e "\e[1;32m$msg_docker_ok\e[0m"
+        else
+            echo "$msg_docker_skip"
+        fi
+    fi
+    
+    echo -e "\e[1;32m$msg_all_ok\e[0m"
+}
+
 # Инициализируем конфиг при старте
 load_config
 choose_language
@@ -239,13 +294,18 @@ if [ "$1" == "--install" ]; then
     echo -e "\e[1;32m    Установка команды rwtools в систему...        \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
     
+    # 1. Устанавливаем зависимости
+    install_dependencies
+    
     SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/RWTools.sh"
     
-    # Копируем скрипт в /usr/local/bin с сокращенным именем
+    # 2. Копируем скрипт в /usr/local/bin
+    echo "Копирование скрипта в /usr/local/bin/rwtools..."
     sudo cp "$SCRIPT_PATH" /usr/local/bin/rwtools
     sudo chmod +x /usr/local/bin/rwtools
     
-    # Создаем алиас в bashrc и zshrc для быстрого доступа
+    # 3. Создаем алиас
+    echo "Добавление алиаса в .bashrc и .zshrc..."
     if [ -f ~/.bashrc ]; then
         if ! grep -q "alias rwtools=" ~/.bashrc; then
             echo "alias rwtools='sudo rwtools'" >> ~/.bashrc
@@ -998,84 +1058,125 @@ interactive_menu() {
         fi
 
         case "$key" in
-            '[A'|w|W)
+            ''|$'\n') 
+                return $cursor 
+                ;;
+            "A"|w) 
                 ((cursor--))
-                [ $cursor -lt 0 ] && cursor=$((${#options[@]} - 1))
+                [ "$cursor" -lt 0 ] && cursor=$((${#options[@]} - 1))
                 ;;
-            '[B'|s|S)
+            "B"|s) 
                 ((cursor++))
-                [ $cursor -ge ${#options[@]} ] && cursor=0
-                ;;
-            "")
-                return $cursor
+                [ "$cursor" -ge ${#options[@]} ] && cursor=0
                 ;;
         esac
     done
 }
 
-# --- ГЛАВНОЕ МЕНЮ ИНСТРУМЕНТА ---
-main_menu() {
+# --- УСКОРИТЕЛЬ НОДА ---
+run_node_accelerator() {
+    local na_path="./node-accelerator" # Указываем путь к скриптам
+
+    # Проверяем, существует ли директория
+    if [ ! -d "$na_path" ]; then
+        if [ "$RLANG" == "RU" ]; then
+            echo -e "\e[1;31m✗ Ошибка: Директория 'node-accelerator' не найдена!\e[0m"
+        else
+            echo -e "\e[1;31m✗ Error: Directory 'node-accelerator' not found!\e[0m"
+        fi
+        read -p "Нажмите Enter для возврата..."
+        return 1
+    fi
+
     while true; do
         clear
-        local title="🚀 RemnaTools $VERSION (CLI)"
+        local title="Node.js Accelerator"
         local prompt="Выберите действие:"
+        local opt1="Диагностика системы"
+        local opt2="Оптимизировать (производительность + безопасность)"
+        local opt3="Только безопасность"
+        local opt4="Откатить изменения"
+        local opt5="Создать отчет"
+        local opt6="Назад в главное меню"
+        
         if [ "$RLANG" == "EN" ]; then
-            title="🚀 RemnaTools $VERSION (CLI)"
+            title="Node.js Accelerator"
             prompt="Select an action:"
+            opt1="Diagnose system"
+            opt2="Optimize (performance + security)"
+            opt3="Security only"
+            opt4="Rollback changes"
+            opt5="Create report"
+            opt6="Back to main menu"
         fi
 
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m          $title              \e[0m"
+        echo -e "\e[1;32m                 $title               \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         
-        local -a menu_options
-        if [ "$RLANG" == "RU" ]; then
-            menu_options=(
-                "🔧 Автоустановка Панели (Caddy + DB + Docker)" 
-                "🖥️  Автоустановка Remna Node" 
-                "💾 Управление резервными копиями" 
-                "📊 Тесты и бенчмарки" 
-                "⬆️  Обновить скрипт" 
-                "🗑️  Удалить RemnaTools" 
-                "ℹ️  О нас" 
-                "🌐 Сменить язык (Change Language)"
-                "❌ Выход"
-            )
-        else
-            menu_options=(
-                "🔧 Auto-install Panel (Caddy + DB + Docker)" 
-                "🖥️  Auto-install Remna Node" 
-                "💾 Backup Management" 
-                "📊 Tests & Benchmarks" 
-                "⬆️  Update Script" 
-                "🗑️  Uninstall RemnaTools" 
-                "ℹ️  About Us" 
-                "🌐 Change Language (Сменить язык)"
-                "❌ Exit"
-            )
-        fi
+        local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4" "$opt5" "$opt6")
+        interactive_menu menu_items "$(echo -e '\e[1;33m$prompt\e[0m')"
+        local choice=$?
         
-        interactive_menu menu_options "$(echo -e "\e[1;33m$prompt\e[0m")"
+        # Переходим в директорию со скриптами, чтобы они корректно работали
+        cd "$na_path/scripts" || return
+        
+        case $choice in
+            0) bash ./diagnose.sh ;;
+            1) bash ./optimize.sh ;;
+            2) bash ./protect.sh ;;
+            3) bash ./rollback.sh ;;
+            4) bash ./na-report.sh ;;
+            5) cd - > /dev/null; break ;; # Возвращаемся из директории и выходим из цикла
+            *) cd - > /dev/null; break ;; # Возвращаемся из директории и выходим из цикла
+        esac
+        
+        # Возвращаемся обратно после выполнения скрипта
+        cd - > /dev/null
+        read -p "Нажмите Enter для продолжения..."
+    done
+}
+
+# --- ОСНОВНОЕ МЕНЮ ---
+main_menu() {
+    while true; do
+        clear
+        local title="🚀 RemnaTools $VERSION"
+        local prompt="Выберите действие:"
+        local opt1="Установить Панель"
+        local opt2="Установить Ноду"
+        local opt3="Управление бэкапами"
+        local opt4="Тесты и Бенчмарки"
+        local opt5="Ускоритель Node.js"
+        local opt6="Обновить скрипт"
+        local opt7="Сменить язык"
+        local opt8="Удалить RemnaTools"
+        local opt9="Выход"
+        
+        if [ "$RLANG" == "EN" ]; then
+            title="🚀 RemnaTools $VERSION"
+            prompt="Select an action:"
+            opt1="Install Panel"
+            opt2="Install Node"
+            opt3="Backup Management"
+            opt4="Tests & Benchmarks"
+            opt5="Node.js Accelerator"
+            opt6="Update script"
+            opt7="Change language"
+            opt8="Uninstall RemnaTools"
+            opt9="Exit"
+        fi
+
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;32m                 $title               \e[0m"
+        echo -e "\e[1;36m====================================================\e[0m"
+        
+        local -a menu_items=(
+            "$opt1" "$opt2" "$opt3" "$opt4" 
+            "$opt5" "$opt6" "$opt7" "$opt8" "$opt9"
+        )
+        interactive_menu menu_items "$(echo -e '\e[1;33m$prompt\e[0m')"
         local choice=$?
         
         case $choice in
             0) install_panel ;;
-            1) install_node ;;
-            2) manage_backups ;;
-            3) run_benchmarks ;;
-            4) update_script; [ "$RLANG" == "RU" ] && read -p "Нажмите Enter для возврата..." || read -p "Press Enter to return..." ;;
-            5) uninstall_script ;;
-            6) show_about; [ "$RLANG" == "RU" ] && read -p "Нажмите Enter для возврата..." || read -p "Press Enter to return..." ;;
-            7) change_language_menu ;;
-            8) 
-                clear
-                [ "$RLANG" == "RU" ] && echo -e "\e[1;32mСпасибо за использование RemnaTools! 👋\e[0m" || echo -e "\e[1;32mThanks for using RemnaTools! 👋\e[0m"
-                exit 0
-                ;;
-            *) echo "Error." && sleep 1 ;;
-        esac
-    done
-}
-
-# Запуск главного меню
-main_menu

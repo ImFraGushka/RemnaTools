@@ -1,4 +1,4 @@
-# 🚀 RemnaTools v1.2.2
+# 🚀 RemnaTools v1.3.0
 
 choose your language: [Русский](https://github.com/ImFraGushka/RemnaTools/blob/main/README_RU.md)
 
@@ -66,6 +66,16 @@ sudo rwtools --install    # Install to system
 6. Exit
 ```
 
+### Node.js Accelerator Menu
+```
+1. Diagnose system
+2. Optimize (performance + security)
+3. Security only
+4. Rollback changes
+5. Create report
+6. Back to main menu
+```
+
 ## 🔐 Requirements
 
 - Ubuntu/Debian Linux
@@ -113,3 +123,18 @@ For questions and issues, contact: https://t.me/FraG_mmM
 **Version:** 1.2.2  
 **License:** MIT  
 **Compatibility:** Linux/Ubuntu 18.04+
+
+## ⚡ Node.js Accelerator
+
+Integrated set of scripts for optimization, diagnostics and protection of your server.
+(Based on the original [node-accelerator](https://github.com/jestivald/node-accelerator/tree/main) repository).
+
+Supports: Debian 11/12/13, Ubuntu 20.04–26.04.
+
+### Key Features of the Accelerator:
+- Diagnose system health and performance
+- Optimize (performance + security)
+- Security only
+- Rollback changes
+- Create report
+- Back to main menu

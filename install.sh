@@ -29,11 +29,13 @@ chmod +x /usr/local/bin/rwtools
 # Создаем символическую ссылку (опционально)
 ln -sf /usr/local/bin/rwtools /usr/bin/rwtools 2>/dev/null || true
 
+echo -e "\e[1;32m    Добро пожаловать в установщик RemnaTools!     \e[0m"
+echo -e "\e[1;36m====================================================\e[0m"
+
+# Запускаем установку зависимостей и самой команды
+bash RWTools.sh --install
+
 echo -e "\e[1;32m✓ Установка завершена!\e[0m"
+echo "  Теперь вы можете использовать команду 'rwtools' из любого места."
+echo "  Пример: sudo rwtools"
 echo ""
-echo "Теперь вы можете использовать команду:"
-echo -e "  \e[1;33msudo rwtools\e[0m          - для запуска интерактивного меню"
-echo -e "  \e[1;33msudo rwtools --about\e[0m   - для справки"
-echo -e "  \e[1;33msudo rwtools --update\e[0m  - для обновления"
-echo ""
-echo "🎉 RemnaTools успешно установлена!"
