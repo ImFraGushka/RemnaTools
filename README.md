@@ -92,7 +92,7 @@ sudo rwtools --install    # Install to system
 - Backups uploaded via Telegram API
 - Arrow keys (↑↓) for navigation, Space to select/deselect, Enter to confirm
 
-  ## ⚡ Node.js Accelerator
+## ⚡ Node.js Accelerator
 
 Integrated set of scripts for optimization, diagnostics and protection of your server.
 (Based on the original [node-accelerator](https://github.com/jestivald/node-accelerator/tree/main) repository).
