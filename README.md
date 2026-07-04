@@ -75,6 +75,20 @@ sudo rwtools --install    # Install to system
 5. Create report
 6. Back to main menu
 ```
+## ⚡ Node.js Accelerator
+
+Integrated set of scripts for optimization, diagnostics and protection of your server.
+(Based on the original [node-accelerator](https://github.com/jestivald/node-accelerator/tree/main) repository).
+
+Supports: Debian 11/12/13, Ubuntu 20.04–26.04.
+
+### Key Features of the Accelerator:
+- Diagnose system health and performance
+- Optimize (performance + security)
+- Security only
+- Rollback changes
+- Create report
+- Back to main menu
 
 ## 🔐 Requirements
 
@@ -91,21 +105,6 @@ sudo rwtools --install    # Install to system
 - Telegram token and Chat ID stored locally
 - Backups uploaded via Telegram API
 - Arrow keys (↑↓) for navigation, Space to select/deselect, Enter to confirm
-
-## ⚡ Node.js Accelerator
-
-Integrated set of scripts for optimization, diagnostics and protection of your server.
-(Based on the original [node-accelerator](https://github.com/jestivald/node-accelerator/tree/main) repository).
-
-Supports: Debian 11/12/13, Ubuntu 20.04–26.04.
-
-### Key Features of the Accelerator:
-- Diagnose system health and performance
-- Optimize (performance + security)
-- Security only
-- Rollback changes
-- Create report
-- Back to main menu
 
 ## 🐛 Troubleshooting
 
