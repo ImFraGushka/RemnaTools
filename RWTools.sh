@@ -1180,15 +1180,15 @@ main_menu() {
         
         case $choice in
             0) install_panel ;;
-            1) install_node ;
-            2) manage_backups ;
-            3) run_benchmarks ;
-            4) run_node_accelerator ;
-            5) update_script ;
-            6) change_language_menu ;
-            7) uninstall_script ;
-            8) exit 0 ;
-            *) exit 0 ;
+            1) install_node ;;
+            2) manage_backups ;;
+            3) run_benchmarks ;;
+            4) run_node_accelerator ;;
+            5) update_script ;;
+            6) change_language_menu ;;
+            7) uninstall_script ;;
+            8) exit 0 ;;
+            *) exit 0 ;;
         esac
     done
 }
