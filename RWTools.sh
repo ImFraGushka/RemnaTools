@@ -165,28 +165,51 @@ show_about() {
 # Функция обновления
 update_script() {
     clear
+    local title="Обновление RemnaTools..."
+    local msg_loading="Загрузка последней версии с GitHub..."
+    local err_empty="✗ Ошибка: Скачанный файл пуст."
+    local err_syntax="✗ Ошибка: Скачанный файл содержит синтаксические ошибки."
+    local err_copy="✗ Ошибка при копировании файла."
+    local err_load="✗ Ошибка при загрузке: проверьте интернет-соединение."
+    local msg_ok="✓ Скрипт успешно обновлен!"
+    local msg_restart="  Перезапустите скрипт для применения изменений."
+
+    if [ "$RLANG" == "EN" ]; then
+        title="Updating RemnaTools..."
+        msg_loading="Loading latest version from GitHub..."
+        err_empty="✗ Error: Downloaded file is empty."
+        err_syntax="✗ Error: Downloaded file contains syntax errors."
+        err_copy="✗ Error while copying file."
+        err_load="✗ Error during download: check your internet connection."
+        msg_ok="✓ Script updated successfully!"
+        msg_restart="  Restart the script to apply changes."
+    fi
+
     echo -e "\e[1;36m====================================================\e[0m"
-    echo -e "\e[1;32m           Обновление RemnaTools...                 \e[0m"
+    echo -e "\e[1;32m           $title                 \e[0m"
     echo -e "\e[1;36m====================================================\e[0m"
-    echo "Загрузка последней версии с GitHub..."
+    echo "$msg_loading"
     
     # Определяем путь к текущему исполняемому файлу
     SCRIPT_PATH=$(realpath "${BASH_SOURCE[0]}")
     
     # Загружаем новую версию во временный файл
+    local TMP_FILE
     TMP_FILE=$(mktemp)
+    
+    # Устанавливаем "ловушку" для удаления временного файла при любом выходе из скрипта (даже при Ctrl+C)
+    trap 'rm -f "$TMP_FILE"' EXIT
+    
     if curl -fsSL "$UPDATE_URL" -o "$TMP_FILE"; then
         # Проверяем, не пустой ли файл скачался
         if [ ! -s "$TMP_FILE" ]; then
-            echo -e "\e[1;31m✗ Ошибка: Скачанный файл пуст.\e[0m"
-            rm -f "$TMP_FILE"
+            echo -e "\e[1;31m$err_empty\e[0m"
             return 1
         fi
         
         # Проверяем синтаксис скачанного файла перед заменой
         if ! bash -n "$TMP_FILE"; then
-            echo -e "\e[1;31m✗ Ошибка: Скачанный файл содержит синтаксические ошибки.\e[0m"
-            rm -f "$TMP_FILE"
+            echo -e "\e[1;31m$err_syntax\e[0m"
             return 1
         fi
         
@@ -202,17 +225,15 @@ update_script() {
                 sudo cp "$TMP_FILE" /usr/local/bin/rwtools
                 sudo chmod +x /usr/local/bin/rwtools
             fi
-            echo -e "\e[1;32m✓ Скрипт успешно обновлен!\e[0m"
-            echo "  Перезапустите скрипт для применения изменений."
-            rm -f "$TMP_FILE"
-            exit 0 # При успехе выходим, так как файл изменился
+            echo -e "\e[1;32m$msg_ok\e[0m"
+            echo "$msg_restart"
+            exit 0 # При успехе выходим. trap позаботится об удалении файла.
         else
-            echo -e "\e[1;31m✗ Ошибка при копировании файла.\e[0m"
-            sudo mv "$BACKUP_PATH" "$SCRIPT_PATH"
+            echo -e "\e[1;31m$err_copy\e[0m"
+            sudo mv "$BACKUP_PATH" "$SCRIPT_PATH" # Восстанавливаем из бэкапа
         fi
-        rm -f "$TMP_FILE"
     else
-        echo -e "\e[1;31m✗ Ошибка при загрузке: проверьте интернет-соединение.\e[0m"
+        echo -e "\e[1;31m$err_load\e[0m"
         return 1
     fi
 }
