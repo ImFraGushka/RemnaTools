@@ -1058,7 +1058,9 @@ interactive_menu() {
     
     while true; do
         clear
-        echo -e "$prompt"
+        # Заголовок теперь отображается здесь
+        echo -e "\e[1;36m====================================================\e[0m"
+        echo -e "\e[1;32m                 $prompt               \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         
         for i in "${!options[@]}"; do
@@ -1069,7 +1071,11 @@ interactive_menu() {
             fi
         done
         echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "Управление: ↑↓ (стрелки) или w/s, Enter (выбрать)"
+        local help_msg="Управление: ↑↓ (стрелки) или w/s, Enter (выбрать)"
+        if [ "$RLANG" == "EN" ]; then
+            help_msg="Controls: ↑↓ (arrows) or w/s, Enter (select)"
+        fi
+        echo -e "$help_msg"
         echo ""
         
         read -rsn1 key
@@ -1082,11 +1088,11 @@ interactive_menu() {
             ''|$'\n') 
                 return $cursor 
                 ;;
-            "A"|w) 
+            "[A"|w) 
                 ((cursor--))
                 [ "$cursor" -lt 0 ] && cursor=$((${#options[@]} - 1))
                 ;;
-            "B"|s) 
+            "[B"|s) 
                 ((cursor++))
                 [ "$cursor" -ge ${#options[@]} ] && cursor=0
                 ;;
@@ -1130,13 +1136,9 @@ run_node_accelerator() {
             opt5="Create report"
             opt6="Back to main menu"
         fi
-
-        echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m                 $title               \e[0m"
-        echo -e "\e[1;36m====================================================\e[0m"
         
         local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4" "$opt5" "$opt6")
-        interactive_menu menu_items "$(echo -e '\e[1;33m$prompt\e[0m')"
+        interactive_menu menu_items "$title"
         local choice=$?
         
         # Переходим в директорию со скриптами, чтобы они корректно работали
@@ -1163,7 +1165,6 @@ main_menu() {
     while true; do
         clear
         local title="🚀 RemnaTools $VERSION"
-        local prompt="Выберите действие:"
         local opt1="Установить Панель"
         local opt2="Установить Ноду"
         local opt3="Управление бэкапами"
@@ -1176,7 +1177,6 @@ main_menu() {
         
         if [ "$RLANG" == "EN" ]; then
             title="🚀 RemnaTools $VERSION"
-            prompt="Select an action:"
             opt1="Install Panel"
             opt2="Install Node"
             opt3="Backup Management"
@@ -1187,16 +1187,12 @@ main_menu() {
             opt8="Uninstall RemnaTools"
             opt9="Exit"
         fi
-
-        echo -e "\e[1;36m====================================================\e[0m"
-        echo -e "\e[1;32m                 $title               \e[0m"
-        echo -e "\e[1;36m====================================================\e[0m"
         
         local -a menu_items=(
             "$opt1" "$opt2" "$opt3" "$opt4" 
             "$opt5" "$opt6" "$opt7" "$opt8" "$opt9"
         )
-        interactive_menu menu_items "$(echo -e '\e[1;33m$prompt\e[0m')"
+        interactive_menu menu_items "$title"
         local choice=$?
         
         case $choice in
