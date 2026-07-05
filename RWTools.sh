@@ -8,7 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.3.0" # Текущая версия скрипта
+VERSION="v1.3.2" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 mkdir -p /opt/remnatools
 
@@ -477,7 +477,7 @@ install_node() {
     read -p "${MSG[ask_bbr3]}" WANT_BBR3
     read -p "${MSG[ask_ipv6]}" WANT_IPV6
 
-    # --- Запрос настройки SelfSteal ---
+    # --- Запрос настройки SelfSteel ---
     read -p "${MSG[ask_ss_enable]}" WANT_SELFSTEAL
 
     if [[ "$WANT_SELFSTEAL" =~ ^[YyДд]$ ]]; then
@@ -1181,17 +1181,4 @@ main_menu() {
         case $choice in
             0) install_panel ;;
             1) install_node ;
-            2) manage_backups ;
-            3) run_benchmarks ;
-            4) run_node_accelerator ;
-            5) update_script ;
-            6) change_language_menu ;
-            7) uninstall_script ;
-            8) exit 0 ;
-            *) exit 0 ;
-        esac
-    done
-}
-
-# --- СТАРТ СКРИПТА ---
-main_menu
+            2) manage_backups ;;

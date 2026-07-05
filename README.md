@@ -1,4 +1,4 @@
-# 🚀 RemnaTools v1.3.0
+# 🚀 RemnaTools v1.3.2
 
 choose your language: [Русский](https://github.com/ImFraGushka/RemnaTools/blob/main/README_RU.md)
 
@@ -124,9 +124,3 @@ Supports: Debian 11/12/13, Ubuntu 20.04–26.04.
 ## 📞 Contact with me
 
 For questions and issues, contact: https://t.me/FraG_mmM
-
----
-
-**Version:** 1.3.0
-**License:** MIT  
-**Compatibility:** Linux/Ubuntu 18.04+
