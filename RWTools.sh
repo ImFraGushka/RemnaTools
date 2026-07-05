@@ -238,10 +238,23 @@ update_script() {
     fi
 }
 
+# --- ФУНКЦИЯ ОЖИДАНИЯ APT LOCK ---
+wait_for_apt_lock() {
+    local msg_wait="Ожидание освобождения apt-lock (может занять несколько минут)..."
+    if [ "$RLANG" == "EN" ]; then
+        msg_wait="Waiting for apt-lock to be released (may take a few minutes)..."
+    fi
+
+    while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+       echo "$msg_wait"
+       sleep 3
+    done
+}
+
 # --- ФУНКЦИЯ ПРОВЕРКИ И УСТАНОВКИ ЗАВИСИМОСТЕЙ ---
 install_dependencies() {
     local packages_to_install=()
-    local dependencies=("curl" "wget" "git" "tar" "openssl" "nftables")
+    local dependencies=("curl" "wget" "git" "tar" "openssl" "nftables" "fuser")
     
     # Интернационализация сообщений
     local msg_checking="Проверка зависимостей..."
@@ -274,6 +287,7 @@ install_dependencies() {
     # Если есть что установить
     if [ ${#packages_to_install[@]} -ne 0 ]; then
         echo "$msg_installing ${packages_to_install[*]}"
+        wait_for_apt_lock
         apt-get update
         apt-get install -y "${packages_to_install[@]}"
     fi
@@ -359,15 +373,28 @@ install_panel() {
     if [ "$LANG" == "RU" ]; then
         MSG_DOMAIN="Введите FRONT_END_DOMAIN (например, panel.example.com): "
         MSG_SUB="Введите SUB_PUBLIC_DOMAIN (например, sub.example.com): "
+        MSG_DOCKER_CHECK="Проверка Docker..."
+        MSG_DOCKER_EXISTS="✓ Docker уже установлен."
+        MSG_DOCKER_INSTALL="Docker не найден. Установка..."
     else
         MSG_DOMAIN="Enter FRONT_END_DOMAIN (e.g., panel.example.com): "
         MSG_SUB="Enter SUB_PUBLIC_DOMAIN (e.g., sub.example.com): "
+        MSG_DOCKER_CHECK="Checking Docker..."
+        MSG_DOCKER_EXISTS="✓ Docker is already installed."
+        MSG_DOCKER_INSTALL="Docker not found. Installing..."
     fi
 
     read -p "$MSG_DOMAIN" FRONT_END_DOMAIN
     read -p "$MSG_SUB" SUB_PUBLIC_DOMAIN
 
-    sudo curl -fsSL https://get.docker.com | sh
+    echo "$MSG_DOCKER_CHECK"
+    if ! command -v docker &> /dev/null; then
+        echo "$MSG_DOCKER_INSTALL"
+        curl -fsSL https://get.docker.com | sh
+    else
+        echo -e "\e[1;32m$MSG_DOCKER_EXISTS\e[0m"
+    fi
+    
     mkdir -p /opt/remnawave && cd /opt/remnawave
     curl -o docker-compose.yml https://raw.githubusercontent.com/remnawave/backend/refs/heads/main/docker-compose-prod.yml
     curl -o .env https://raw.githubusercontent.com/remnawave/backend/refs/heads/main/.env.sample
@@ -513,6 +540,7 @@ install_node() {
 
     # 1. Обновление системы
     echo "${MSG[updating]}"
+    wait_for_apt_lock
     apt update && apt upgrade -y
 
     # 2. Включение базового BBR
