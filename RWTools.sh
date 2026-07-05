@@ -8,7 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.3.8" # Текущая версия скрипта
+VERSION="v1.3.9" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 mkdir -p /opt/remnatools
 
@@ -1263,3 +1263,14 @@ main_menu() {
         
         case $choice in
             0) install_panel ;;
+            1) install_node ;;
+            2) manage_backups ;;
+            3) run_benchmarks ;;
+            4) run_node_accelerator ;;
+            5) run_other_utils ;;
+            6) update_script ;;
+            7) change_language_menu ;;
+            8) uninstall_script ;;
+            9) exit 0 ;;
+            *) exit 0 ;;
+        esac
