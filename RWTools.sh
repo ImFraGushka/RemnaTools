@@ -8,7 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.3.7" # Текущая версия скрипта
+VERSION="v1.3.8" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 mkdir -p /opt/remnatools
 
@@ -1188,6 +1188,42 @@ run_node_accelerator() {
     done
 }
 
+# --- ПРОЧИЕ УТИЛИТЫ ---
+run_other_utils() {
+    while true; do
+        clear
+        local title="Прочие утилиты"
+        local opt1="Включить/Отключить IPv6"
+        local opt2="Назад в главное меню"
+        
+        if [ "$RLANG" == "EN" ]; then
+            title="Other Utilities"
+            opt1="Enable/Disable IPv6"
+            opt2="Back to main menu"
+        fi
+        
+        local -a menu_items=("$opt1" "$opt2")
+        interactive_menu menu_items "$title"
+        local choice=$?
+        
+        case $choice in
+            0) 
+                local ipv6_script="./utils/ipv6_toggle.sh"
+                if [ -f "$ipv6_script" ]; then
+                    chmod +x "$ipv6_script"
+                    bash "$ipv6_script"
+                else
+                    echo "Ошибка: скрипт $ipv6_script не найден."
+                    sleep 2
+                fi
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            1) break ;;
+            *) break ;;
+        esac
+    done
+}
+
 # --- ОСНОВНОЕ МЕНЮ ---
 main_menu() {
     while true; do
@@ -1198,10 +1234,11 @@ main_menu() {
         local opt3="Управление бэкапами"
         local opt4="Тесты и Бенчмарки"
         local opt5="Ускоритель Node.js"
-        local opt6="Обновить скрипт"
-        local opt7="Сменить язык"
-        local opt8="Удалить RemnaTools"
-        local opt9="Выход"
+        local opt6="Прочие утилиты"
+        local opt7="Обновить скрипт"
+        local opt8="Сменить язык"
+        local opt9="Удалить RemnaTools"
+        local opt10="Выход"
         
         if [ "$RLANG" == "EN" ]; then
             title="🚀 RemnaTools $VERSION"
@@ -1210,33 +1247,19 @@ main_menu() {
             opt3="Backup Management"
             opt4="Tests & Benchmarks"
             opt5="Node.js Accelerator"
-            opt6="Update script"
-            opt7="Change language"
-            opt8="Uninstall RemnaTools"
-            opt9="Exit"
+            opt6="Other Utilities"
+            opt7="Update script"
+            opt8="Change language"
+            opt9="Uninstall RemnaTools"
+            opt10="Exit"
         fi
         
         local -a menu_items=(
             "$opt1" "$opt2" "$opt3" "$opt4" 
-            "$opt5" "$opt6" "$opt7" "$opt8" "$opt9"
+            "$opt5" "$opt6" "$opt7" "$opt8" "$opt9" "$opt10"
         )
         interactive_menu menu_items "$title"
         local choice=$?
         
         case $choice in
             0) install_panel ;;
-            1) install_node ;;
-            2) manage_backups ;;
-            3) run_benchmarks ;;
-            4) run_node_accelerator ;;
-            5) update_script ;;
-            6) change_language_menu ;;
-            7) uninstall_script ;;
-            8) exit 0 ;;
-            *) exit 0 ;;
-        esac
-    done
-}
-
-# --- СТАРТ СКРИПТА ---
-main_menu
