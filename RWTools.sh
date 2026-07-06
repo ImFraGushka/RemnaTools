@@ -1274,3 +1274,8 @@ main_menu() {
             9) exit 0 ;;
             *) exit 0 ;;
         esac
+    done
+}
+
+# --- СТАРТ СКРИПТА ---
+main_menu
