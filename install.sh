@@ -26,6 +26,13 @@ echo "Копирование скрипта в /usr/local/bin/rwtools..."
 cp "$SCRIPT_PATH" /usr/local/bin/rwtools
 chmod +x /usr/local/bin/rwtools
 
+# Копируем вспомогательные скрипты (например, utils/ipv6_toggle.sh) в постоянное расположение
+if [ -d "$SCRIPT_DIR/utils" ]; then
+    mkdir -p /opt/remnatools/utils
+    cp -f "$SCRIPT_DIR"/utils/*.sh /opt/remnatools/utils/ 2>/dev/null || true
+    chmod +x /opt/remnatools/utils/*.sh 2>/dev/null || true
+fi
+
 # Создаем символическую ссылку (опционально)
 ln -sf /usr/local/bin/rwtools /usr/bin/rwtools 2>/dev/null || true
 

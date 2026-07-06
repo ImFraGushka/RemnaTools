@@ -10,6 +10,8 @@ fi
 CONFIG_FILE="/opt/remnatools/config.conf"
 VERSION="v1.3.9" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
+IPV6_SCRIPT_PATH="/opt/remnatools/utils/ipv6_toggle.sh" # Локальный кэш скрипта переключения IPv6
+IPV6_SCRIPT_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/utils/ipv6_toggle.sh" # URL для загрузки скрипта переключения IPv6
 mkdir -p /opt/remnatools
 
 # --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
@@ -1207,13 +1209,26 @@ run_other_utils() {
         local choice=$?
         
         case $choice in
-            0) 
-                local ipv6_script="./utils/ipv6_toggle.sh"
-                if [ -f "$ipv6_script" ]; then
-                    chmod +x "$ipv6_script"
-                    bash "$ipv6_script"
+            0)
+                # Ищем скрипт рядом с самим RWTools.sh (например, при запуске из git-клона)
+                local own_dir
+                own_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+                if [ -f "$own_dir/utils/ipv6_toggle.sh" ]; then
+                    mkdir -p "$(dirname "$IPV6_SCRIPT_PATH")"
+                    cp -f "$own_dir/utils/ipv6_toggle.sh" "$IPV6_SCRIPT_PATH"
+                fi
+
+                # Если локальной копии нет (установлен только один файл /usr/local/bin/rwtools) - качаем и кэшируем
+                if [ ! -f "$IPV6_SCRIPT_PATH" ]; then
+                    mkdir -p "$(dirname "$IPV6_SCRIPT_PATH")"
+                    curl -fsSL "$IPV6_SCRIPT_URL" -o "$IPV6_SCRIPT_PATH" 2>/dev/null || rm -f "$IPV6_SCRIPT_PATH"
+                fi
+
+                if [ -f "$IPV6_SCRIPT_PATH" ]; then
+                    chmod +x "$IPV6_SCRIPT_PATH"
+                    bash "$IPV6_SCRIPT_PATH"
                 else
-                    echo "Ошибка: скрипт $ipv6_script не найден."
+                    echo "Ошибка: не удалось найти или загрузить ipv6_toggle.sh (проверьте интернет-соединение)."
                     sleep 2
                 fi
                 read -p "Нажмите Enter для продолжения..."

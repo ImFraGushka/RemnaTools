@@ -63,6 +63,7 @@ is_ipv6() {
     [[ "$1" == *:* ]]
 }
 
+
 reorder_dns_tokens() {
     local raw="$1"
     raw="$(echo "$raw" | xargs || true)"
@@ -266,6 +267,14 @@ fi
 if ! ask_yes_no "Do you want to ${ACTION} IPv6?"; then
     echo "No changes made."
     exit 0
+fi
+
+if [[ "$ACTION" == "disable" ]]; then
+    SYSCTL_VAL=1
+    GRUB_PARAM="ipv6.disable=1"
+else
+    SYSCTL_VAL=0
+    GRUB_PARAM=""
 fi
 
 echo
