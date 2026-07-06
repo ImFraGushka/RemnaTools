@@ -1210,18 +1210,19 @@ run_other_utils() {
         
         case $choice in
             0)
+                mkdir -p "$(dirname "$IPV6_SCRIPT_PATH")"
+
                 # Ищем скрипт рядом с самим RWTools.sh (например, при запуске из git-клона)
+                # и всегда обновляем кэш, чтобы не залипнуть на старой версии
                 local own_dir
                 own_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
                 if [ -f "$own_dir/utils/ipv6_toggle.sh" ]; then
-                    mkdir -p "$(dirname "$IPV6_SCRIPT_PATH")"
                     cp -f "$own_dir/utils/ipv6_toggle.sh" "$IPV6_SCRIPT_PATH"
-                fi
-
-                # Если локальной копии нет (установлен только один файл /usr/local/bin/rwtools) - качаем и кэшируем
-                if [ ! -f "$IPV6_SCRIPT_PATH" ]; then
-                    mkdir -p "$(dirname "$IPV6_SCRIPT_PATH")"
-                    curl -fsSL "$IPV6_SCRIPT_URL" -o "$IPV6_SCRIPT_PATH" 2>/dev/null || rm -f "$IPV6_SCRIPT_PATH"
+                else
+                    # Установлен только один файл /usr/local/bin/rwtools - пробуем перекачать свежую версию с GitHub
+                    curl -fsSL "$IPV6_SCRIPT_URL" -o "${IPV6_SCRIPT_PATH}.new" 2>/dev/null \
+                        && mv -f "${IPV6_SCRIPT_PATH}.new" "$IPV6_SCRIPT_PATH" \
+                        || rm -f "${IPV6_SCRIPT_PATH}.new"
                 fi
 
                 if [ -f "$IPV6_SCRIPT_PATH" ]; then
