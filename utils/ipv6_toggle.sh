@@ -290,7 +290,9 @@ net.ipv6.conf.lo.disable_ipv6 = ${SYSCTL_VAL}
 EOF
 
 echo "Applying sysctl settings..."
-sudo sysctl --load="${SYSCTL_CONF}" || sudo sysctl -p "${SYSCTL_CONF}"
+if ! sudo sysctl --load="${SYSCTL_CONF}" 2>/dev/null && ! sudo sysctl -p "${SYSCTL_CONF}" 2>/dev/null; then
+    echo "[INFO] Не удалось применить sysctl немедленно (обычно это нормально, если IPv6 сейчас полностью отключён на уровне ядра параметром ipv6.disable=1 — sysctl-узлы net.ipv6.* в этом случае отсутствуют в /proc). Настройки вступят в силу после перезагрузки."
+fi
 
 GRUB_CFG="/etc/default/grub"
 echo "Backing up ${GRUB_CFG}"
