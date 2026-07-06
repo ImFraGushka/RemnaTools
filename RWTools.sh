@@ -8,7 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.3.9" # Текущая версия скрипта
+VERSION="v1.3.13" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 IPV6_SCRIPT_PATH="/opt/remnatools/utils/ipv6_toggle.sh" # Локальный кэш скрипта переключения IPv6
 IPV6_SCRIPT_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/utils/ipv6_toggle.sh" # URL для загрузки скрипта переключения IPv6
