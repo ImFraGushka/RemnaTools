@@ -8,10 +8,12 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.3.9" # Текущая версия скрипта
+VERSION="v1.3.14" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 IPV6_SCRIPT_PATH="/opt/remnatools/utils/ipv6_toggle.sh" # Локальный кэш скрипта переключения IPv6
 IPV6_SCRIPT_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/utils/ipv6_toggle.sh" # URL для загрузки скрипта переключения IPv6
+NODE_ACCELERATOR_PATH="/opt/remnatools/node-accelerator" # Локальный кэш директории node-accelerator
+NODE_ACCELERATOR_REPO="https://github.com/ImFraGushka/RemnaTools.git" # Репозиторий для загрузки node-accelerator
 mkdir -p /opt/remnatools
 
 # --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
@@ -1131,15 +1133,48 @@ interactive_menu() {
 }
 
 # --- УСКОРИТЕЛЬ НОДА ---
+
+# Обновляет/скачивает директорию node-accelerator в постоянный кэш /opt/remnatools.
+# Возвращает 0, если после этого в кэше есть рабочие скрипты.
+refresh_node_accelerator_cache() {
+    local own_dir
+    own_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+    # Запуск из git-клона (рядом с RWTools.sh лежит node-accelerator) - берём свежую копию оттуда
+    if [ -d "$own_dir/node-accelerator/scripts" ]; then
+        mkdir -p "$(dirname "$NODE_ACCELERATOR_PATH")"
+        rm -rf "$NODE_ACCELERATOR_PATH"
+        cp -r "$own_dir/node-accelerator" "$NODE_ACCELERATOR_PATH"
+        return 0
+    fi
+
+    # Установлен только один файл /usr/local/bin/rwtools - качаем свежую версию с GitHub
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    if git clone --depth 1 --quiet "$NODE_ACCELERATOR_REPO" "$tmp_dir" 2>/dev/null \
+        && [ -d "$tmp_dir/node-accelerator/scripts" ]; then
+        mkdir -p "$(dirname "$NODE_ACCELERATOR_PATH")"
+        rm -rf "$NODE_ACCELERATOR_PATH"
+        cp -r "$tmp_dir/node-accelerator" "$NODE_ACCELERATOR_PATH"
+        rm -rf "$tmp_dir"
+        return 0
+    fi
+    rm -rf "$tmp_dir"
+
+    # Не удалось обновить - используем то, что уже закэшировано ранее (если есть)
+    [ -d "$NODE_ACCELERATOR_PATH/scripts" ]
+}
+
 run_node_accelerator() {
-    local na_path="./node-accelerator" # Указываем путь к скриптам
+    refresh_node_accelerator_cache
+    local na_path="$NODE_ACCELERATOR_PATH"
 
     # Проверяем, существует ли директория
-    if [ ! -d "$na_path" ]; then
+    if [ ! -d "$na_path/scripts" ]; then
         if [ "$RLANG" == "RU" ]; then
-            echo -e "\e[1;31m✗ Ошибка: Директория 'node-accelerator' не найдена!\e[0m"
+            echo -e "\e[1;31m✗ Ошибка: Директория 'node-accelerator' не найдена и не удалось её загрузить (проверьте интернет-соединение).\e[0m"
         else
-            echo -e "\e[1;31m✗ Error: Directory 'node-accelerator' not found!\e[0m"
+            echo -e "\e[1;31m✗ Error: Directory 'node-accelerator' not found and could not be downloaded (check your internet connection).\e[0m"
         fi
         read -p "Нажмите Enter для возврата..."
         return 1

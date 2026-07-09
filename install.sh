@@ -33,6 +33,13 @@ if [ -d "$SCRIPT_DIR/utils" ]; then
     chmod +x /opt/remnatools/utils/*.sh 2>/dev/null || true
 fi
 
+# Копируем node-accelerator в постоянное расположение
+if [ -d "$SCRIPT_DIR/node-accelerator/scripts" ]; then
+    rm -rf /opt/remnatools/node-accelerator
+    cp -r "$SCRIPT_DIR/node-accelerator" /opt/remnatools/node-accelerator
+    chmod +x /opt/remnatools/node-accelerator/scripts/*.sh 2>/dev/null || true
+fi
+
 # Создаем символическую ссылку (опционально)
 ln -sf /usr/local/bin/rwtools /usr/bin/rwtools 2>/dev/null || true
 
