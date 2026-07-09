@@ -1,4 +1,4 @@
-# 🚀 RemnaTools v1.3.14
+# 🚀 RemnaTools v1.3.13
 
 Ультимативный CLI-инструмент для управления экосистемой Remnawave на Linux/Ubuntu серверах.
 
