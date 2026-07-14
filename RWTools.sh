@@ -1230,6 +1230,137 @@ run_node_accelerator() {
     done
 }
 
+# --- UFW ФАЕРВОЛ ---
+detect_ssh_ports() {
+    local -a ports=()
+    while IFS= read -r port_line; do
+        ports+=("$port_line")
+    done < <(grep -E '^\s*Port\s+[0-9]+' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}')
+    [ ${#ports[@]} -eq 0 ] && ports=(22)
+    echo "${ports[@]}"
+}
+
+ensure_ufw_installed() {
+    if command -v ufw &>/dev/null; then
+        return 0
+    fi
+    echo "Устанавливаю ufw..."
+    wait_for_apt_lock
+    apt-get update -qq
+    apt-get install -y ufw
+    command -v ufw &>/dev/null
+}
+
+# Разрешает в ufw текущий(е) SSH-порт(ы) (автоопределение из sshd_config, по умолчанию 22).
+# Печатает список портов через пробел в stdout.
+ufw_allow_ssh_ports() {
+    local -a ssh_ports
+    read -r -a ssh_ports <<< "$(detect_ssh_ports)"
+    local p
+    for p in "${ssh_ports[@]}"; do
+        ufw allow "${p}/tcp" comment "SSH (rwtools)" >/dev/null
+    done
+    echo "${ssh_ports[*]}"
+}
+
+run_ufw_manager() {
+    if ! ensure_ufw_installed; then
+        echo "Ошибка: не удалось установить ufw (проверьте интернет-соединение)."
+        read -p "Нажмите Enter для продолжения..."
+        return 1
+    fi
+
+    while true; do
+        clear
+        local ssh_ports_display
+        ssh_ports_display="$(detect_ssh_ports)"
+
+        local title="Управление файрволом (ufw)"
+        local opt1="📊 Статус файрвола"
+        local opt2="📋 Просмотр правил"
+        local opt3="✅ Включить файрвол"
+        local opt4="❌ Выключить файрвол"
+        local opt5="🌐 Открыть веб-порты (80, 443)"
+        local opt6="🔒 Закрыть веб-порты (80, 443)"
+        local opt7="🔑 Открыть порт SSH ($ssh_ports_display)"
+        local opt8="🎯 Открыть порт для IP (например, Remnawave-ноды)"
+        local opt9="⬅️  Назад"
+
+        if [ "$RLANG" == "EN" ]; then
+            title="Firewall management (ufw)"
+            opt1="📊 Firewall status"
+            opt2="📋 View rules"
+            opt3="✅ Enable firewall"
+            opt4="❌ Disable firewall"
+            opt5="🌐 Open web ports (80, 443)"
+            opt6="🔒 Close web ports (80, 443)"
+            opt7="🔑 Open SSH port ($ssh_ports_display)"
+            opt8="🎯 Open port for an IP (e.g. Remnawave node)"
+            opt9="⬅️  Back"
+        fi
+
+        local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4" "$opt5" "$opt6" "$opt7" "$opt8" "$opt9")
+        interactive_menu menu_items "$title"
+        local choice=$?
+
+        case $choice in
+            0)
+                ufw status verbose
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            1)
+                ufw status numbered
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            2)
+                local allowed
+                allowed="$(ufw_allow_ssh_ports)"
+                echo -e "SSH-порт(ы) заранее разрешены: \e[1;33m$allowed\e[0m"
+                ufw --force enable
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            3)
+                echo -e "\e[1;33mВНИМАНИЕ: выключение файрвола снимет все ограничения доступа.\e[0m"
+                ufw --force disable
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            4)
+                ufw allow 80/tcp
+                ufw allow 443/tcp
+                echo "Веб-порты 80 и 443 открыты."
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            5)
+                ufw delete allow 80/tcp 2>/dev/null
+                ufw delete allow 443/tcp 2>/dev/null
+                echo "Веб-порты 80 и 443 закрыты."
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            6)
+                local allowed
+                allowed="$(ufw_allow_ssh_ports)"
+                echo -e "SSH-порт(ы) открыты: \e[1;33m$allowed\e[0m"
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            7)
+                local remna_ip="" remna_port="2222" remna_port_input=""
+                read -p "IP адрес (например, IP ноды Remnawave): " remna_ip
+                if [ -z "$remna_ip" ]; then
+                    echo "IP не указан, отмена."
+                else
+                    read -p "Порт [по умолчанию 2222]: " remna_port_input
+                    [ -n "$remna_port_input" ] && remna_port="$remna_port_input"
+                    ufw allow from "$remna_ip" to any port "$remna_port"
+                    echo "Разрешено: $remna_ip -> порт $remna_port"
+                fi
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            8) break ;;
+            *) break ;;
+        esac
+    done
+}
+
 # --- TRAFFIC GUARD (защита от сканеров портов) ---
 # https://github.com/dotX12/traffic-guard
 traffic_guard_status() {
@@ -1266,28 +1397,15 @@ ensure_traffic_guard_installed() {
 # Устанавливает и включает ufw, предварительно разрешив текущий(е) SSH-порт(ы),
 # чтобы не потерять доступ к серверу.
 ensure_firewall_enabled() {
-    if ! command -v ufw &>/dev/null; then
-        echo "Устанавливаю ufw..."
-        wait_for_apt_lock
-        apt-get update -qq
-        apt-get install -y ufw
-    fi
+    ensure_ufw_installed || return 1
 
-    local -a ssh_ports=()
-    while IFS= read -r port_line; do
-        ssh_ports+=("$port_line")
-    done < <(grep -E '^\s*Port\s+[0-9]+' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}')
-    [ ${#ssh_ports[@]} -eq 0 ] && ssh_ports=(22)
-
-    local p
-    for p in "${ssh_ports[@]}"; do
-        ufw allow "${p}/tcp" comment "SSH (rwtools)" >/dev/null
-    done
+    local ssh_ports
+    ssh_ports="$(ufw_allow_ssh_ports)"
 
     if ufw status | grep -q "Status: active"; then
-        echo -e "\e[1;32m✓ ufw уже активен\e[0m (SSH-порт(ы) разрешены: ${ssh_ports[*]})"
+        echo -e "\e[1;32m✓ ufw уже активен\e[0m (SSH-порт(ы) разрешены: $ssh_ports)"
     else
-        echo -e "Включаю ufw (SSH-порт(ы) заранее разрешены: \e[1;33m${ssh_ports[*]}\e[0m)..."
+        echo -e "Включаю ufw (SSH-порт(ы) заранее разрешены: \e[1;33m$ssh_ports\e[0m)..."
         ufw --force enable
     fi
 }
@@ -1406,16 +1524,18 @@ run_other_utils() {
         local title="Прочие утилиты"
         local opt1="Включить/Отключить IPv6"
         local opt2="TrafficGuard (защита от сканеров портов)"
-        local opt3="Назад в главное меню"
+        local opt3="Управление файрволом (ufw)"
+        local opt4="Назад в главное меню"
 
         if [ "$RLANG" == "EN" ]; then
             title="Other Utilities"
             opt1="Enable/Disable IPv6"
             opt2="TrafficGuard (port scanner protection)"
-            opt3="Back to main menu"
+            opt3="Firewall management (ufw)"
+            opt4="Back to main menu"
         fi
 
-        local -a menu_items=("$opt1" "$opt2" "$opt3")
+        local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4")
         interactive_menu menu_items "$title"
         local choice=$?
 
@@ -1446,7 +1566,8 @@ run_other_utils() {
                 read -p "Нажмите Enter для продолжения..."
                 ;;
             1) run_traffic_guard ;;
-            2) break ;;
+            2) run_ufw_manager ;;
+            3) break ;;
             *) break ;;
         esac
     done
