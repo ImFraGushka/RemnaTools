@@ -1263,6 +1263,86 @@ ensure_traffic_guard_installed() {
     command -v traffic-guard &>/dev/null
 }
 
+# Устанавливает и включает ufw, предварительно разрешив текущий(е) SSH-порт(ы),
+# чтобы не потерять доступ к серверу.
+ensure_firewall_enabled() {
+    if ! command -v ufw &>/dev/null; then
+        echo "Устанавливаю ufw..."
+        wait_for_apt_lock
+        apt-get update -qq
+        apt-get install -y ufw
+    fi
+
+    local -a ssh_ports=()
+    while IFS= read -r port_line; do
+        ssh_ports+=("$port_line")
+    done < <(grep -E '^\s*Port\s+[0-9]+' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}')
+    [ ${#ssh_ports[@]} -eq 0 ] && ssh_ports=(22)
+
+    local p
+    for p in "${ssh_ports[@]}"; do
+        ufw allow "${p}/tcp" comment "SSH (rwtools)" >/dev/null
+    done
+
+    if ufw status | grep -q "Status: active"; then
+        echo -e "\e[1;32m✓ ufw уже активен\e[0m (SSH-порт(ы) разрешены: ${ssh_ports[*]})"
+    else
+        echo -e "Включаю ufw (SSH-порт(ы) заранее разрешены: \e[1;33m${ssh_ports[*]}\e[0m)..."
+        ufw --force enable
+    fi
+}
+
+# Спрашивает, включать ли логирование заблокированных подключений.
+# Возвращает "1" через stdout, если да, иначе "0".
+ask_traffic_guard_logging() {
+    local title="Включить логирование заблокированных подключений?"
+    local opt1="С логированием"
+    local opt2="Без логирования"
+
+    if [ "$RLANG" == "EN" ]; then
+        title="Enable logging of blocked connections?"
+        opt1="With logging"
+        opt2="Without logging"
+    fi
+
+    local -a menu_items=("$opt1" "$opt2")
+    interactive_menu menu_items "$title" >&2
+    local choice=$?
+    if [ "$choice" -eq 0 ]; then
+        echo "1"
+    else
+        echo "0"
+    fi
+}
+
+# Устанавливает (при необходимости), включает файрвол и применяет правила traffic-guard.
+# Принимает: URL(ы) списков подсетей как отдельные аргументы.
+apply_traffic_guard() {
+    local -a list_urls=("$@")
+
+    if ! ensure_traffic_guard_installed; then
+        echo "Ошибка: не удалось установить traffic-guard (проверьте интернет-соединение)."
+        return 1
+    fi
+
+    ensure_firewall_enabled
+
+    local enable_logging
+    enable_logging="$(ask_traffic_guard_logging)"
+
+    local -a url_args=()
+    local list_url
+    for list_url in "${list_urls[@]}"; do
+        url_args+=(-u "$list_url")
+    done
+
+    if [ "$enable_logging" == "1" ]; then
+        traffic-guard full "${url_args[@]}" --enable-logging
+    else
+        traffic-guard full "${url_args[@]}"
+    fi
+}
+
 run_traffic_guard() {
     while true; do
         clear
@@ -1288,29 +1368,16 @@ run_traffic_guard() {
 
         case $choice in
             0)
-                if ensure_traffic_guard_installed; then
-                    local -a url_args=()
-                    local list_url
-                    for list_url in "${TRAFFIC_GUARD_DEFAULT_LISTS[@]}"; do
-                        url_args+=(-u "$list_url")
-                    done
-                    traffic-guard full "${url_args[@]}" --enable-logging
-                else
-                    echo "Ошибка: не удалось установить traffic-guard (проверьте интернет-соединение)."
-                fi
+                apply_traffic_guard "${TRAFFIC_GUARD_DEFAULT_LISTS[@]}"
                 read -p "Нажмите Enter для продолжения..."
                 ;;
             1)
-                if ensure_traffic_guard_installed; then
-                    local custom_url=""
-                    read -p "Введите URL списка подсетей: " custom_url
-                    if [ -n "$custom_url" ]; then
-                        traffic-guard full -u "$custom_url" --enable-logging
-                    else
-                        echo "URL не указан, отмена."
-                    fi
+                local custom_url=""
+                read -p "Введите URL списка подсетей: " custom_url
+                if [ -n "$custom_url" ]; then
+                    apply_traffic_guard "$custom_url"
                 else
-                    echo "Ошибка: не удалось установить traffic-guard (проверьте интернет-соединение)."
+                    echo "URL не указан, отмена."
                 fi
                 read -p "Нажмите Enter для продолжения..."
                 ;;
