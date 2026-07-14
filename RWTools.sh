@@ -8,12 +8,17 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.3.13" # Текущая версия скрипта
+VERSION="v1.4.0" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 IPV6_SCRIPT_PATH="/opt/remnatools/utils/ipv6_toggle.sh" # Локальный кэш скрипта переключения IPv6
 IPV6_SCRIPT_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/utils/ipv6_toggle.sh" # URL для загрузки скрипта переключения IPv6
 NODE_ACCELERATOR_PATH="/opt/remnatools/node-accelerator" # Локальный кэш директории node-accelerator
 NODE_ACCELERATOR_REPO="https://github.com/ImFraGushka/RemnaTools.git" # Репозиторий для загрузки node-accelerator
+TRAFFIC_GUARD_INSTALL_URL="https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh" # Установщик TrafficGuard (защита от сканеров портов)
+TRAFFIC_GUARD_DEFAULT_LISTS=(
+    "https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list"
+    "https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list"
+) # Списки подсетей по умолчанию (https://github.com/shadow-netlab/traffic-guard-lists)
 mkdir -p /opt/remnatools
 
 # --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
@@ -1225,24 +1230,128 @@ run_node_accelerator() {
     done
 }
 
+# --- TRAFFIC GUARD (защита от сканеров портов) ---
+# https://github.com/dotX12/traffic-guard
+traffic_guard_status() {
+    if command -v traffic-guard &>/dev/null; then
+        echo -e "\e[1;32m✓ TrafficGuard установлен:\e[0m $(command -v traffic-guard)"
+    else
+        echo -e "\e[1;31m✗ TrafficGuard не установлен\e[0m"
+        return
+    fi
+
+    if command -v ipset &>/dev/null && ipset list -n 2>/dev/null | grep -q '^SCANNERS-BLOCK-V4$'; then
+        local v4_count v6_count
+        v4_count=$(ipset list SCANNERS-BLOCK-V4 2>/dev/null | grep -cE '^[0-9]')
+        v6_count=$(ipset list SCANNERS-BLOCK-V6 2>/dev/null | grep -cE '^[0-9a-fA-F]')
+        echo -e "\e[1;32m✓ Защита активна:\e[0m заблокировано подсетей IPv4: $v4_count, IPv6: $v6_count"
+    else
+        echo -e "\e[1;33m✗ Защита не активна\e[0m (правила ipset не найдены)"
+    fi
+
+    if systemctl is-enabled antiscan-aggregate.timer &>/dev/null; then
+        echo -e "\e[1;32m✓ Логирование включено\e[0m (antiscan-aggregate.timer)"
+    fi
+}
+
+ensure_traffic_guard_installed() {
+    if command -v traffic-guard &>/dev/null; then
+        return 0
+    fi
+    echo "Устанавливаю TrafficGuard..."
+    curl -fsSL "$TRAFFIC_GUARD_INSTALL_URL" | bash
+    command -v traffic-guard &>/dev/null
+}
+
+run_traffic_guard() {
+    while true; do
+        clear
+        local title="TrafficGuard - защита от сканеров портов"
+        local opt1="Применить защиту (списки по умолчанию)"
+        local opt2="Применить защиту (свой URL списка)"
+        local opt3="Статус"
+        local opt4="Удалить TrafficGuard"
+        local opt5="Назад"
+
+        if [ "$RLANG" == "EN" ]; then
+            title="TrafficGuard - port scanner protection"
+            opt1="Apply protection (default lists)"
+            opt2="Apply protection (custom list URL)"
+            opt3="Status"
+            opt4="Remove TrafficGuard"
+            opt5="Back"
+        fi
+
+        local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4" "$opt5")
+        interactive_menu menu_items "$title"
+        local choice=$?
+
+        case $choice in
+            0)
+                if ensure_traffic_guard_installed; then
+                    local -a url_args=()
+                    local list_url
+                    for list_url in "${TRAFFIC_GUARD_DEFAULT_LISTS[@]}"; do
+                        url_args+=(-u "$list_url")
+                    done
+                    traffic-guard full "${url_args[@]}" --enable-logging
+                else
+                    echo "Ошибка: не удалось установить traffic-guard (проверьте интернет-соединение)."
+                fi
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            1)
+                if ensure_traffic_guard_installed; then
+                    local custom_url=""
+                    read -p "Введите URL списка подсетей: " custom_url
+                    if [ -n "$custom_url" ]; then
+                        traffic-guard full -u "$custom_url" --enable-logging
+                    else
+                        echo "URL не указан, отмена."
+                    fi
+                else
+                    echo "Ошибка: не удалось установить traffic-guard (проверьте интернет-соединение)."
+                fi
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            2)
+                traffic_guard_status
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            3)
+                if command -v traffic-guard &>/dev/null; then
+                    traffic-guard uninstall --yes
+                else
+                    echo "TrafficGuard не установлен."
+                fi
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            4) break ;;
+            *) break ;;
+        esac
+    done
+}
+
 # --- ПРОЧИЕ УТИЛИТЫ ---
 run_other_utils() {
     while true; do
         clear
         local title="Прочие утилиты"
         local opt1="Включить/Отключить IPv6"
-        local opt2="Назад в главное меню"
-        
+        local opt2="TrafficGuard (защита от сканеров портов)"
+        local opt3="Назад в главное меню"
+
         if [ "$RLANG" == "EN" ]; then
             title="Other Utilities"
             opt1="Enable/Disable IPv6"
-            opt2="Back to main menu"
+            opt2="TrafficGuard (port scanner protection)"
+            opt3="Back to main menu"
         fi
-        
-        local -a menu_items=("$opt1" "$opt2")
+
+        local -a menu_items=("$opt1" "$opt2" "$opt3")
         interactive_menu menu_items "$title"
         local choice=$?
-        
+
         case $choice in
             0)
                 mkdir -p "$(dirname "$IPV6_SCRIPT_PATH")"
@@ -1269,7 +1378,8 @@ run_other_utils() {
                 fi
                 read -p "Нажмите Enter для продолжения..."
                 ;;
-            1) break ;;
+            1) run_traffic_guard ;;
+            2) break ;;
             *) break ;;
         esac
     done

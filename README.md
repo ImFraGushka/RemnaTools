@@ -1,4 +1,4 @@
-# 🚀 RemnaTools v1.3.13
+# 🚀 RemnaTools v1.4.0
 
 choose your language: [Русский](https://github.com/ImFraGushka/RemnaTools/blob/main/README_RU.md)
 
@@ -10,6 +10,7 @@ The ultimate CLI tool for managing the Remnawave ecosystem on Linux/Ubuntu serve
 ✓ **Auto Node Installation** - With BBR3, IPv6-off, SelfSteal support  
 ✓ **Backup Management** - Create, restore, and auto-upload to Telegram  
 ✓ **Auto Script Update** - Built-in update with backup  
+✓ **TrafficGuard** - Blocks port scanner traffic via iptables/ipset  
 
 ## 📱 Supported Systems
 
@@ -89,6 +90,17 @@ Supports: Debian 11/12/13, Ubuntu 20.04–26.04.
 - Rollback changes
 - Create report
 - Back to main menu
+
+## 🛡️ TrafficGuard
+
+Blocks traffic from known port scanners at the firewall level using iptables and ipset.
+(Based on the original [traffic-guard](https://github.com/dotX12/traffic-guard) project).
+
+Available from the "Other Utilities" menu:
+- Apply protection with default subnet blocklists
+- Apply protection with a custom blocklist URL
+- Status (installed / active rules / logging)
+- Remove TrafficGuard
 
 ## 🔐 Requirements
 
