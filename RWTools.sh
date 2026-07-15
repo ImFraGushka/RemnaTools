@@ -714,6 +714,26 @@ EOF
 
 # --- БЛОК БЭКАПОВ ---
 
+# Ставит cron (если его нет) и включает автозапуск демона, чтобы расписание
+# бэкапов продолжало работать после перезагрузки сервера.
+ensure_cron_enabled() {
+    if ! command -v crontab &>/dev/null; then
+        echo "Устанавливаю cron..."
+        wait_for_apt_lock
+        apt-get update -qq
+        apt-get install -y cron
+    fi
+
+    local svc
+    for svc in cron crond; do
+        if systemctl list-unit-files 2>/dev/null | grep -q "^${svc}\.service"; then
+            systemctl enable "$svc" &>/dev/null
+            systemctl start "$svc" &>/dev/null
+            return 0
+        fi
+    done
+}
+
 create_backup_now() {
     clear
     local title="Создание резервной копии..."
@@ -784,6 +804,8 @@ configure_backup_auto() {
     local ask_token="Введите Telegram Bot Token: "
     local ask_chat="Введите Telegram Chat ID: "
     local ask_topic="Введите Topic ID (оставьте пустым если нет): "
+    local msg_keep="  (Enter — оставить текущее значение)"
+    local msg_current="Текущее: "
     local ask_cron_title="Выберите периодичность бэкапов:"
     local cron_opt1="Раз в час (0 * * * *)"
     local cron_opt2="Раз в день в полночь (0 0 * * *)"
@@ -798,6 +820,8 @@ configure_backup_auto() {
         ask_token="Enter Telegram Bot Token: "
         ask_chat="Enter Telegram Chat ID: "
         ask_topic="Enter Topic ID (leave empty if none): "
+        msg_keep="  (Enter — keep current value)"
+        msg_current="Current: "
         ask_cron_title="Select backup frequency:"
         cron_opt1="Every hour (0 * * * *)"
         cron_opt2="Every day at midnight (0 0 * * *)"
@@ -813,39 +837,123 @@ configure_backup_auto() {
     echo -e "\e[1;36m====================================================\e[0m"
     echo ""
     
-    read -p "$ask_token" TG_TOKEN
-    read -p "$ask_chat" TG_CHAT_ID
-    read -p "$ask_topic" TG_TOPIC_ID
+    # Пустой ввод оставляет ранее сохранённое значение, чтобы настройки не терялись
+    local input=""
+
+    if [ -n "$TG_TOKEN" ]; then
+        echo -e "\e[1;90m${msg_current}${TG_TOKEN:0:8}...${msg_keep}\e[0m"
+    fi
+    read -p "$ask_token" input
+    [ -n "$input" ] && TG_TOKEN="$input"
+
+    if [ -n "$TG_CHAT_ID" ]; then
+        echo -e "\e[1;90m${msg_current}${TG_CHAT_ID}${msg_keep}\e[0m"
+    fi
+    read -p "$ask_chat" input
+    [ -n "$input" ] && TG_CHAT_ID="$input"
+
+    if [ -n "$TG_TOPIC_ID" ]; then
+        echo -e "\e[1;90m${msg_current}${TG_TOPIC_ID}${msg_keep}, \"-\" — очистить\e[0m"
+    fi
+    read -p "$ask_topic" input
+    if [ "$input" == "-" ]; then
+        TG_TOPIC_ID=""
+    elif [ -n "$input" ]; then
+        TG_TOPIC_ID="$input"
+    fi
     
-    # Создаем скрипт выполнения бэкапа
+    # Создаем скрипт выполнения бэкапа.
+    # Heredoc в кавычках: переменные НЕ раскрываются при записи, воркер читает
+    # актуальные настройки из конфига при каждом запуске из cron.
     mkdir -p /opt/remnatools
     cat <<'EOF' > /opt/remnatools/backup_worker.sh
 #!/bin/bash
-# ...existing code...
-rm -rf $BACKUP_DIR
+# Автоматический бэкап RemnaTools (запускается из cron).
+# Настройки берутся из /opt/remnatools/config.conf при каждом запуске.
+
+CONFIG_FILE="/opt/remnatools/config.conf"
+LOG_FILE="/opt/remnatools/backup.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    log "Ошибка: конфиг $CONFIG_FILE не найден"
+    exit 1
+fi
+. "$CONFIG_FILE"
+
+if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then
+    log "Ошибка: Telegram не настроен (TG_TOKEN или TG_CHAT_ID пусты)"
+    exit 1
+fi
+
+BACKUP_DIR="/tmp/remna_backups"
+BACKUP_NAME="remna_backup_$(date +%Y%m%d_%H%M%S).tar.gz"
+
+mkdir -p "$BACKUP_DIR"
+tar -czf "$BACKUP_DIR/$BACKUP_NAME" -C / opt/remnawave opt/remnanode 2>/dev/null
+
+if [ ! -s "$BACKUP_DIR/$BACKUP_NAME" ]; then
+    log "Ошибка: не удалось создать архив (нет /opt/remnawave и /opt/remnanode?)"
+    rm -rf "$BACKUP_DIR"
+    exit 1
+fi
+
+if [ -z "$TG_TOPIC_ID" ]; then
+    RESPONSE=$(curl -s -F chat_id="$TG_CHAT_ID" -F document=@"$BACKUP_DIR/$BACKUP_NAME" \
+        "https://api.telegram.org/bot$TG_TOKEN/sendDocument")
+else
+    RESPONSE=$(curl -s -F chat_id="$TG_CHAT_ID" -F message_thread_id="$TG_TOPIC_ID" \
+        -F document=@"$BACKUP_DIR/$BACKUP_NAME" \
+        "https://api.telegram.org/bot$TG_TOKEN/sendDocument")
+fi
+
+if echo "$RESPONSE" | grep -q '"ok":true'; then
+    log "Бэкап $BACKUP_NAME отправлен ($(du -h "$BACKUP_DIR/$BACKUP_NAME" | cut -f1))"
+else
+    log "Ошибка отправки в Telegram: $RESPONSE"
+fi
+
+rm -rf "$BACKUP_DIR"
 EOF
 
     chmod +x /opt/remnatools/backup_worker.sh
     
+    # Cron должен быть установлен и включён в автозапуск, иначе после перезагрузки
+    # сервера расписание перестанет срабатывать
+    ensure_cron_enabled
+
     echo "$ask_cron_title"
     local -a cron_options=("$cron_opt1" "$cron_opt2" "$cron_opt3")
-    interactive_menu cron_options "$ask_schedule" 
+    interactive_menu cron_options "$ask_schedule"
     local choice=$?
-    
+
     # Удаляем старые записи cron
     (crontab -l 2>/dev/null | grep -v "backup_worker.sh") | crontab - 2>/dev/null
-    
+
     case $choice in
-        0) (crontab -l 2>/dev/null; echo "0 * * * * /opt/remnatools/backup_worker.sh") | crontab - ;;
-        1) (crontab -l 2>/dev/null; echo "0 0 * * * /opt/remnatools/backup_worker.sh") | crontab - ;;
-        2) 
+        0)
+            CRON_CHOICE="hourly"
+            USER_TIME=""
+            (crontab -l 2>/dev/null; echo "0 * * * * /opt/remnatools/backup_worker.sh") | crontab -
+            ;;
+        1)
+            CRON_CHOICE="daily"
+            USER_TIME="00:00"
+            (crontab -l 2>/dev/null; echo "0 0 * * * /opt/remnatools/backup_worker.sh") | crontab -
+            ;;
+        2)
             read -p "$ask_time" B_TIME
             H=$(echo $B_TIME | cut -d: -f1)
             M=$(echo $B_TIME | cut -d: -f2)
+            CRON_CHOICE="custom"
+            USER_TIME="$B_TIME"
             (crontab -l 2>/dev/null; echo "$M $H * * * /opt/remnatools/backup_worker.sh") | crontab -
             ;;
     esac
-    
+
     save_config
     echo -e "\e[1;32m$msg_ok\e[0m"
     read -p "$back"
