@@ -1,4 +1,4 @@
-# 🚀 RemnaTools v1.4.0
+# 🚀 RemnaTools v1.4.1
 
 choose your language: [Русский](https://github.com/ImFraGushka/RemnaTools/blob/main/README_RU.md)
 
@@ -11,6 +11,7 @@ The ultimate CLI tool for managing the Remnawave ecosystem on Linux/Ubuntu serve
 ✓ **Backup Management** - Create, restore, and auto-upload to Telegram  
 ✓ **Auto Script Update** - Built-in update with backup  
 ✓ **TrafficGuard** - Blocks port scanner traffic via iptables/ipset  
+✓ **Advanced Backups** - S3, Google Drive, external DB, bot backup (rw-backup)  
 
 ## 📱 Supported Systems
 
@@ -90,6 +91,20 @@ Supports: Debian 11/12/13, Ubuntu 20.04–26.04.
 - Rollback changes
 - Create report
 - Back to main menu
+
+## 💾 Advanced Backups (rw-backup)
+
+Available from the "Backup Management" menu → "Advanced backups".
+(Based on the original [remnawave-backup-restore](https://github.com/distillium/remnawave-backup-restore) project).
+
+Features:
+- Backup of the panel and/or Telegram shop bot
+- Upload to Telegram, Google Drive or S3
+- External PostgreSQL database support
+- Scheduled auto-backups (cron) and retention policy
+
+On first run the script installs itself to `/opt/rw-backup-restore` and creates the `rw-backup`
+command, which can then be called directly from anywhere in the system.
 
 ## 🛡️ TrafficGuard
 

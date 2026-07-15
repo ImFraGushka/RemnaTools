@@ -8,7 +8,7 @@ fi
 
 # Путь к локальной базе настроек скрипта
 CONFIG_FILE="/opt/remnatools/config.conf"
-VERSION="v1.4.0" # Текущая версия скрипта
+VERSION="v1.4.1" # Текущая версия скрипта
 UPDATE_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/RWTools.sh" # URL для обновления скрипта
 IPV6_SCRIPT_PATH="/opt/remnatools/utils/ipv6_toggle.sh" # Локальный кэш скрипта переключения IPv6
 IPV6_SCRIPT_URL="https://raw.githubusercontent.com/ImFraGushka/RemnaTools/main/utils/ipv6_toggle.sh" # URL для загрузки скрипта переключения IPv6
@@ -19,6 +19,7 @@ TRAFFIC_GUARD_DEFAULT_LISTS=(
     "https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list"
     "https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list"
 ) # Списки подсетей по умолчанию (https://github.com/shadow-netlab/traffic-guard-lists)
+RW_BACKUP_URL="https://raw.githubusercontent.com/distillium/remnawave-backup-restore/main/backup-restore.sh" # Скрипт бэкапов Remnawave (https://github.com/distillium/remnawave-backup-restore)
 mkdir -p /opt/remnatools
 
 # --- ФУНКЦИЯ УДАЛЕНИЯ СКРИПТА ---
@@ -902,6 +903,38 @@ restore_backup() {
     read -p "$back"
 }
 
+# --- РАСШИРЕННЫЕ БЭКАПЫ REMNAWAVE (rw-backup) ---
+# https://github.com/distillium/remnawave-backup-restore
+# Скрипт самоустанавливающийся: при первом запуске переносит себя в /opt/rw-backup-restore,
+# создаёт команду rw-backup и дальше сам управляет своими обновлениями и удалением.
+run_rw_backup() {
+    if command -v rw-backup &>/dev/null; then
+        rw-backup
+        return $?
+    fi
+
+    local msg_installing="Загрузка remnawave-backup-restore..."
+    local msg_err="Ошибка: не удалось загрузить скрипт бэкапов (проверьте интернет-соединение)."
+    if [ "$RLANG" == "EN" ]; then
+        msg_installing="Downloading remnawave-backup-restore..."
+        msg_err="Error: failed to download the backup script (check your internet connection)."
+    fi
+
+    echo "$msg_installing"
+    local tmp_script
+    tmp_script=$(mktemp)
+    if curl -fsSL "$RW_BACKUP_URL" -o "$tmp_script"; then
+        chmod +x "$tmp_script"
+        # Скрипт сам перенесёт себя в /opt/rw-backup-restore и создаст симлинк rw-backup
+        bash "$tmp_script"
+    else
+        echo -e "\e[1;31m$msg_err\e[0m"
+        rm -f "$tmp_script"
+        return 1
+    fi
+    rm -f "$tmp_script"
+}
+
 manage_backups() {
     while true; do
         clear
@@ -910,30 +943,36 @@ manage_backups() {
         local opt1="1. Создать бэкап прямо сейчас"
         local opt2="2. Восстановиться из бэкапа"
         local opt3="3. Настройка автоотправки"
-        local opt4="4. Назад в главное меню"
-        
+        local opt4="4. Расширенные бэкапы (rw-backup: S3, Google Drive, бот)"
+        local opt5="5. Назад в главное меню"
+
         if [ "$RLANG" == "EN" ]; then
             title="Backup Management"
             prompt="Select an action:"
             opt1="1. Create backup now"
             opt2="2. Restore from backup"
             opt3="3. Configure auto-send"
-            opt4="4. Back to main menu"
+            opt4="4. Advanced backups (rw-backup: S3, Google Drive, bot)"
+            opt5="5. Back to main menu"
         fi
 
         echo -e "\e[1;36m====================================================\e[0m"
         echo -e "\e[1;32m           $title          \e[0m"
         echo -e "\e[1;36m====================================================\e[0m"
         
-        local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4")
+        local -a menu_items=("$opt1" "$opt2" "$opt3" "$opt4" "$opt5")
         interactive_menu menu_items "$(echo -e "\e[1;33m$prompt\e[0m")"
         local choice=$?
-        
+
         case $choice in
             0) create_backup_now ;;
             1) restore_backup ;;
             2) configure_backup_auto ;;
-            3) break ;;
+            3)
+                run_rw_backup
+                read -p "Нажмите Enter для продолжения..."
+                ;;
+            4) break ;;
             *) break ;;
         esac
     done
